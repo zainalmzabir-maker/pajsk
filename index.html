@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Analisis PAJSK SMKKA 2026</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- SheetJS untuk membaca Google Sheet (.xlsx) & Fail Excel -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- Chart.js untuk Graf Interaktif -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    @media print {
+      .no-print { display: none !important; }
+      body { background: #fff !important; }
+      .print-break { page-break-before: always; }
+    }
+    .tab-active {
+      border-bottom: 3px solid #1d4ed8;
+      color: #1d4ed8;
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen font-sans">
+
+  <!-- KONFIGURASI LALAI (Tampal pautan Google Sheet .xlsx anda di sini jika mahu auto-muat tanpa perlu isi setiap kali) -->
+  <script>
+    const DEFAULT_GOOGLE_SHEET_XLSX_URL = ""; 
+    // Contoh: "https://docs.google.com/spreadsheets/d/ID_SHEET_ANDA/export?format=xlsx"
+    // Atau pautan Publish to Web: "https://docs.google.com/spreadsheets/d/e/2PACX-.../pub?output=xlsx"
+
+    // Penanda Aras GPT & GPS 2025 (daripada ANALISIS PAJSK SMKKA 2025.xlsx)
+    const BENCHMARK_2025 = {
+      "1": 1.33,
+      "2": 1.84,
+      "3": 1.96,
+      "4": 1.40,
+      "5": 1.28,
+      "ALL": 1.56
+    };
+  </script>
+
+  <!-- HEADER -->
+  <header class="bg-gradient-to-r from-blue-900 via-blue-800 to-indigo-900 text-white shadow-lg">
+    <div class="max-w-7xl mx-auto px-4 py-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div>
+        <div class="flex items-center gap-2 text-blue-200 text-xs uppercase tracking-wider font-semibold">
+          <i data-lucide="award" class="w-4 h-4"></i> Unit Kokurikulum SMKKA
+        </div>
+        <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight mt-0.5">
+          Sistem Analisis PAJSK 2026
+        </h1>
+        <p class="text-blue-100 text-sm mt-1">
+          Dashboard Automatik GPA, CGPA, Markah 10%, GPT &amp; GPS (Integrasi Google Sheets)
+        </p>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2 no-print">
+        <button onclick="toggleConfigModal()" class="bg-white/15 hover:bg-white/25 text-white px-3.5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition">
+          <i data-lucide="link" class="w-4 h-4"></i> Sambung Google Sheet
+        </button>
+        <label class="bg-emerald-500 hover:bg-emerald-600 text-white px-3.5 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 cursor-pointer transition shadow">
+          <i data-lucide="upload" class="w-4 h-4"></i> Muat Naik .XLSX
+          <input type="file" id="excelFileInput" accept=".xlsx,.xls" class="hidden" onchange="handleFileUpload(event)" />
+        </label>
+        <button onclick="exportAnalysisToExcel()" id="btnExport" disabled class="bg-amber-500 hover:bg-amber-600 disabled:opacity-40 text-white px-3.5 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition shadow">
+          <i data-lucide="download" class="w-4 h-4"></i> Eksport Analisis
+        </button>
+        <button onclick="window.print()" class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-1.5 transition">
+          <i data-lucide="printer" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- STATUS BAR -->
+  <div class="bg-white border-b border-slate-200">
+    <div class="max-w-7xl mx-auto px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600">
+      <div class="flex items-center gap-2">
+        <span id="statusDot" class="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block"></span>
+        <span id="statusText" class="font-medium">Sedia memuatkan data. Sila sambungkan pautan Google Sheet atau muat naik fail PAJSK 2026.xlsx.</span>
+      </div>
+      <div class="flex items-center gap-3 no-print">
+        <button onclick="syncFromSavedUrl()" id="btnRefresh" class="hidden text-blue-700 hover:underline font-semibold flex items-center gap-1">
+          <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Muat Semula Data Sheet
+        </button>
+        <span id="lastUpdated" class="text-slate-400"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL SAMBUNG GOOGLE SHEET -->
+  <div id="configModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4 no-print">
+    <div class="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl">
+      <div class="flex items-center justify-between border-b pb-3">
+        <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+          <i data-lucide="sheet" class="w-5 h-5 text-emerald-600"></i> Tetapan Pautan Google Sheets
+        </h2>
+        <button onclick="toggleConfigModal()" class="text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div class="mt-4 space-y-3 text-sm text-slate-600">
+        <p>Untuk membaca semua 12 tab kelas (<code class="bg-slate-100 px-1.5 py-0.5 rounded">1S1</code> hingga <code class="bg-slate-100 px-1.5 py-0.5 rounded">5S3</code>) terus dari Google Sheets:</p>
+        <ol class="list-decimal list-inside space-y-1 bg-blue-50 p-3 rounded-lg text-slate-700 text-xs">
+          <li>Buka Google Sheet data PAJSK 2026 anda.</li>
+          <li>Klik <strong>File (Fail) &rarr; Share (Kongsi) &rarr; Publish to web (Terbitkan ke web)</strong>.</li>
+          <li>Pilih <strong>Entire Document</strong> dan format <strong>Microsoft Excel (.xlsx)</strong>, kemudian klik <strong>Publish</strong>.</li>
+          <li>Salin pautan yang dijana dan tampal di bawah:</li>
+        </ol>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Pautan Google Sheet (.xlsx):</label>
+          <input type="url" id="sheetUrlInput" placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=xlsx"
+            class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+        </div>
+      </div>
+      <div class="mt-5 flex justify-end gap-2">
+        <button onclick="toggleConfigModal()" class="px-4 py-2 rounded-lg border text-sm font-medium hover:bg-slate-50">Batal</button>
+        <button onclick="saveAndLoadSheetUrl()" class="px-4 py-2 rounded-lg bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold">Simpan &amp; Muat Data</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <main class="max-w-7xl mx-auto px-4 py-6">
+
+    <!-- EMPTY STATE (Ditunjuk sebelum data dimuatkan) -->
+    <div id="emptyState" class="bg-white rounded-2xl border border-dashed border-slate-300 p-10 text-center max-w-2xl mx-auto my-8 shadow-sm">
+      <div class="w-16 h-16 bg-blue-100 text-blue-700 rounded-2xl flex items-center justify-center mx-auto mb-4">
+        <i data-lucide="bar-chart-3" class="w-8 h-8"></i>
+      </div>
+      <h2 class="text-xl font-bold text-slate-800">Belum Ada Data PAJSK Dimuatkan</h2>
+      <p class="text-slate-500 text-sm mt-2">
+        Muat naik fail <strong>PAJSK 2026.xlsx</strong> atau sambungkan pautan <strong>Google Sheets</strong> anda untuk menjana analisis lengkap GPT, GPS, Gred, dan Fokus Intervensi secara automatik.
+      </p>
+      <div class="mt-6 flex flex-wrap justify-center gap-3">
+        <button onclick="toggleConfigModal()" class="bg-blue-700 hover:bg-blue-800 text-white px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 shadow">
+          <i data-lucide="link" class="w-4 h-4"></i> Sambung Google Sheet
+        </button>
+        <label class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 cursor-pointer shadow">
+          <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> Pilih Fail PAJSK 2026.xlsx
+          <input type="file" accept=".xlsx,.xls" class="hidden" onchange="handleFileUpload(event)" />
+        </label>
+      </div>
+    </div>
+
+    <!-- DASHBOARD CONTAINER -->
+    <div id="dashboardContent" class="hidden space-y-6">
+
+      <!-- PENAPIS GLOBAL (FILTER) -->
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-4 no-print">
+        <div class="flex flex-wrap items-center gap-3">
+          <div>
+            <label class="block text-[11px] font-bold uppercase text-slate-400">Tingkatan</label>
+            <select id="filterTingkatan" onchange="onTingkatanChange()" class="mt-0.5 border border-slate-300 rounded-lg px-3 py-1.5 text-sm font-semibold bg-white">
+              <option value="ALL">Semua Tingkatan (Sekolah)</option>
+              <option value="1">Tingkatan 1</option>
+              <option value="2">Tingkatan 2</option>
+              <option value="3">Tingkatan 3</option>
+              <option value="4">Tingkatan 4</option>
+              <option value="5">Tingkatan 5</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold uppercase text-slate-400">Kelas</label>
+            <select id="filterKelas" onchange="renderAll()" class="mt-0.5 border border-slate-300 rounded-lg px-3 py-1.5 text-sm font-semibold bg-white">
+              <option value="ALL">Semua Kelas</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold uppercase text-slate-400">Penanda Aras GPT/GPS 2025</label>
+            <input type="number" step="0.01" id="benchmarkInput" onchange="renderAll()" class="mt-0.5 border border-slate-300 rounded-lg px-3 py-1.5 text-sm font-semibold w-28" />
+          </div>
+        </div>
+        <div class="text-right text-xs text-slate-500">
+          <span class="font-semibold text-slate-700">Nota GP:</span> Lebih rendah nilai GPT/GPS, lebih cemerlang pencapaian (Skala 1.00 – 5.00).
+        </div>
+      </div>
+
+      <!-- KAD KPI UTAMA -->
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+          <div class="text-xs font-semibold text-slate-400 uppercase">Jumlah Murid</div>
+          <div id="kpiTotal" class="text-2xl font-extrabold text-slate-800 mt-1">0</div>
+          <div id="kpiAssessed" class="text-xs text-emerald-600 font-medium mt-1">0 Ditaksir | 0 TL</div>
+        </div>
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+          <div class="text-xs font-semibold text-slate-400 uppercase">GPT / GPS 2026</div>
+          <div id="kpiGps2026" class="text-2xl font-extrabold text-blue-700 mt-1">0.00</div>
+          <div id="kpiGpsDiff" class="text-xs font-semibold mt-1">-</div>
+        </div>
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+          <div class="text-xs font-semibold text-slate-400 uppercase">Gred A (GP 1)</div>
+          <div id="kpiGradeA" class="text-2xl font-extrabold text-emerald-600 mt-1">0</div>
+          <div id="kpiGradeAPct" class="text-xs text-slate-500 mt-1">0.0% murid ditaksir</div>
+        </div>
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+          <div class="text-xs font-semibold text-slate-400 uppercase">Purata CGPA</div>
+          <div id="kpiAvgCgpa" class="text-2xl font-extrabold text-indigo-700 mt-1">0.00</div>
+          <div id="kpiAvg10" class="text-xs text-slate-500 mt-1">Markah 10%: 0.00</div>
+        </div>
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 col-span-2 md:col-span-1">
+          <div class="text-xs font-semibold text-slate-400 uppercase">Fokus Borderline</div>
+          <div id="kpiBorderline" class="text-2xl font-extrabold text-amber-600 mt-1">0</div>
+          <div class="text-xs text-slate-500 mt-1">Markah 75.00 – 79.99</div>
+        </div>
+      </div>
+
+      <!-- TAB NAVIGASI -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="flex overflow-x-auto border-b border-slate-200 px-2 no-print">
+          <button onclick="switchTab('gpt')" id="tab-gpt" class="tab-btn tab-active px-4 py-3 text-sm whitespace-nowrap">
+            1. Analisis GPT, GPS &amp; Julat (LEG)
+          </button>
+          <button onclick="switchTab('kelas')" id="tab-kelas" class="tab-btn px-4 py-3 text-sm text-slate-600 hover:text-blue-700 whitespace-nowrap">
+            2. Prestasi Mengikut Kelas &amp; Komponen
+          </button>
+          <button onclick="switchTab('fokus')" id="tab-fokus" class="tab-btn px-4 py-3 text-sm text-slate-600 hover:text-blue-700 whitespace-nowrap">
+            3. Senarai Cemerlang &amp; Fokus Borderline
+          </button>
+          <button onclick="switchTab('murid')" id="tab-murid" class="tab-btn px-4 py-3 text-sm text-slate-600 hover:text-blue-700 whitespace-nowrap">
+            4. Kedudukan &amp; Rekod Penuh Murid
+          </button>
+        </div>
+
+        <!-- TAB 1: ANALISIS GPT, GPS & LEG -->
+        <div id="panel-gpt" class="p-5 space-y-6">
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <!-- JADUAL GP & LEG (Padanan Exact Excel 2025) -->
+            <div class="lg:col-span-7 overflow-x-auto">
+              <div class="flex items-center justify-between mb-2">
+                <h3 class="font-bold text-slate-800 text-base">Jadual Pengiraan Gred Purata (GP / LEG / G KIRA)</h3>
+                <span id="tableScopeBadge" class="text-xs bg-blue-100 text-blue-800 font-bold px-2.5 py-0.5 rounded-full">SEMUA TINGKATAN</span>
+              </div>
+              <table class="w-full text-sm border-collapse border border-slate-300">
+                <thead>
+                  <tr class="bg-slate-800 text-white text-xs uppercase">
+                    <th class="border border-slate-300 px-3 py-2 text-center">GP</th>
+                    <th class="border border-slate-300 px-3 py-2 text-center">Gred</th>
+                    <th class="border border-slate-300 px-3 py-2 text-center">Julat 10%</th>
+                    <th class="border border-slate-300 px-3 py-2 text-right">Bil (LEG)</th>
+                    <th class="border border-slate-300 px-3 py-2 text-right">Jumlah</th>
+                    <th class="border border-slate-300 px-3 py-2 text-right">G Kira</th>
+                  </tr>
+                </thead>
+                <tbody id="gpTableBody" class="divide-y divide-slate-200"></tbody>
+              </table>
+            </div>
+
+            <!-- GRAF TABURAN & PERBANDINGAN -->
+            <div class="lg:col-span-5 space-y-5">
+              <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <h4 class="text-sm font-bold text-slate-700 mb-2">Perbandingan GPT 2026 vs 2025 Mengikut Tingkatan</h4>
+                <canvas id="gptCompareChart" height="190"></canvas>
+              </div>
+              <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <h4 class="text-sm font-bold text-slate-700 mb-2">Taburan Gred (Pilihan Semasa)</h4>
+                <canvas id="gradeDistChart" height="160"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- JADUAL RINGKASAN SEMUA TINGKATAN -->
+          <div>
+            <h3 class="font-bold text-slate-800 text-base mb-2">Ringkasan Perbandingan Mengikut Tingkatan (1 hingga 5)</h3>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm border-collapse border border-slate-300">
+                <thead>
+                  <tr class="bg-blue-900 text-white text-xs uppercase">
+                    <th class="border border-slate-300 px-3 py-2 text-left">Tingkatan</th>
+                    <th class="border border-slate-300 px-3 py-2 text-right">Calon</th>
+                    <th class="border border-slate-300 px-3 py-2 text-right">Ditaksir</th>
+                    <th class="border border-slate-300 px-3 py-2 text-right">A</th>
+                    <th class="border border-slate-300 px-3 py-2 text-right">B</th>
+                    <th class="border border-slate-300 px-3 py-2 text-right">C</th>
+                    <th class="border border-slate-300 px-3 py-2 text-right">D</th>
+                    <th class="border border-slate-300 px-3 py-2 text-right">E</th>
+                    <th class="border border-slate-300 px-3 py-2 text-right">% Gred A</th>
+                    <th class="border border-slate-300 px-3 py-2 text-right">GPT 2026</th>
+                    <th class="border border-slate-300 px-3 py-2 text-right">GPT 2025</th>
+                    <th class="border border-slate-300 px-3 py-2 text-center">Beza</th>
+                  </tr>
+                </thead>
+                <tbody id="tingSummaryBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 2: PRESTASI KELAS & KOMPONEN -->
+        <div id="panel-kelas" class="p-5 hidden space-y-6">
+          <div>
+            <h3 class="font-bold text-slate-800 text-base mb-2">Analisis Prestasi Mengikut Kelas (1S1 – 5S3)</h3>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm border-collapse border border-slate-300">
+                <thead>
+                  <tr class="bg-slate-800 text-white text-xs uppercase">
+                    <th class="border border-slate-300 px-3 py-2 text-left">Kelas</th>
+                    <th class="border border-slate-300 px-3 py-2 text-right">Murid</th>
+                    <th class="border border-slate-300 px-3 py-2 text-right">Ditaksir</th>
+                    <th class="border border-slate-300 px-3 py-2 text-right">TL</th>
+                    <th class="border border-slate-300 px-3 py-2 text-right">Gred A</th>
+                    <th class="border border-slate-300 px-3 py-2 text-right">Gred B</th>
+                    <th class="border border-slate-300 px-3 py-2 text-right">Gred C</th>
+                    <th class="border border-slate-300 px-3 py-2 text-right">Purata GPA</th>
+                    <th class="border border-slate-300 px-3 py-2 text-right">Purata CGPA</th>
+                    <th class="border border-slate-300 px-3 py-2 text-right">Markah 10%</th>
+                    <th class="border border-slate-300 px-3 py-2 text-right">GPK 2026</th>
+                  </tr>
+                </thead>
+                <tbody id="classSummaryBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="componentCards"></div>
+        </div>
+
+        <!-- TAB 3: FOKUS BORDERLINE & CEMERLANG -->
+        <div id="panel-fokus" class="p-5 hidden space-y-6">
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- SENARAI MURID CEMERLANG (GRED A >= 80) -->
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <h3 class="font-bold text-emerald-800 text-base flex items-center gap-1.5">
+                  <i data-lucide="star" class="w-4 h-4 text-emerald-600"></i> Calon Cemerlang / Gred A (&ge; 8.00)
+                </h3>
+                <span id="countCemerlang" class="text-xs bg-emerald-100 text-emerald-800 font-bold px-2.5 py-0.5 rounded-full">0</span>
+              </div>
+              <div class="overflow-x-auto max-h-[480px] border border-slate-200 rounded-lg">
+                <table class="w-full text-xs">
+                  <thead class="bg-emerald-800 text-white sticky top-0">
+                    <tr>
+                      <th class="px-2.5 py-2 text-left">Bil</th>
+                      <th class="px-2.5 py-2 text-left">Nama Murid</th>
+                      <th class="px-2.5 py-2 text-center">Kelas</th>
+                      <th class="px-2.5 py-2 text-right">CGPA</th>
+                      <th class="px-2.5 py-2 text-right">10%</th>
+                    </tr>
+                  </thead>
+                  <tbody id="cemerlangBody" class="divide-y divide-slate-200"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- SENARAI FOKUS MARKAH BORDERLINE (75.00 - 79.99) -->
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <h3 class="font-bold text-amber-800 text-base flex items-center gap-1.5">
+                  <i data-lucide="target" class="w-4 h-4 text-amber-600"></i> Fokus Markah Borderline (7.50 – 7.99)
+                </h3>
+                <span id="countBorderline" class="text-xs bg-amber-100 text-amber-800 font-bold px-2.5 py-0.5 rounded-full">0</span>
+              </div>
+              <div class="overflow-x-auto max-h-[480px] border border-slate-200 rounded-lg">
+                <table class="w-full text-xs">
+                  <thead class="bg-amber-700 text-white sticky top-0">
+                    <tr>
+                      <th class="px-2.5 py-2 text-left">Bil</th>
+                      <th class="px-2.5 py-2 text-left">Nama Murid</th>
+                      <th class="px-2.5 py-2 text-center">Kelas</th>
+                      <th class="px-2.5 py-2 text-right">CGPA</th>
+                      <th class="px-2.5 py-2 text-right">Beza ke A</th>
+                    </tr>
+                  </thead>
+                  <tbody id="borderlineBody" class="divide-y divide-slate-200"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- MURID BELUM DITAKSIR (TL) -->
+          <div id="tlSection" class="hidden">
+            <h3 class="font-bold text-rose-700 text-base mb-2">Senarai Murid Belum Ditaksir (Status: TL)</h3>
+            <div class="overflow-x-auto border border-rose-200 rounded-lg">
+              <table class="w-full text-xs">
+                <thead class="bg-rose-700 text-white">
+                  <tr>
+                    <th class="px-3 py-2 text-left">Bil</th>
+                    <th class="px-3 py-2 text-left">Nama Murid</th>
+                    <th class="px-3 py-2 text-left">No. KP</th>
+                    <th class="px-3 py-2 text-center">Kelas</th>
+                    <th class="px-3 py-2 text-center">Status</th>
+                  </tr>
+                </thead>
+                <tbody id="tlBody" class="divide-y divide-rose-100"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 4: REKOD PENUH MURID -->
+        <div id="panel-murid" class="p-5 hidden space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 no-print">
+            <div class="relative flex-1 max-w-md">
+              <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
+              <input type="text" id="searchStudent" oninput="renderStudentTable()" placeholder="Cari nama murid, kelas, kelab, badan beruniform atau sukan..."
+                class="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+              <label class="font-semibold text-slate-600">Susun Mengikut:</label>
+              <select id="sortStudent" onchange="renderStudentTable()" class="border border-slate-300 rounded-lg px-2.5 py-1.5 font-semibold">
+                <option value="cgpa_desc">CGPA Tertinggi (Ranking)</option>
+                <option value="cgpa_asc">CGPA Terendah</option>
+                <option value="name_asc">Nama (A - Z)</option>
+                <option value="class_asc">Kelas</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto border border-slate-200 rounded-xl max-h-[600px]">
+            <table class="w-full text-xs">
+              <thead class="bg-slate-800 text-white sticky top-0">
+                <tr>
+                  <th class="px-2.5 py-2.5 text-center">Ked</th>
+                  <th class="px-2.5 py-2.5 text-left">Nama Murid</th>
+                  <th class="px-2.5 py-2.5 text-center">Kelas</th>
+                  <th class="px-2.5 py-2.5 text-left">Kelab &amp; Persatuan</th>
+                  <th class="px-2.5 py-2.5 text-left">Badan Beruniform</th>
+                  <th class="px-2.5 py-2.5 text-left">Sukan &amp; Permainan</th>
+                  <th class="px-2.5 py-2.5 text-left">Ekstra</th>
+                  <th class="px-2.5 py-2.5 text-right">GPA</th>
+                  <th class="px-2.5 py-2.5 text-right">CGPA</th>
+                  <th class="px-2.5 py-2.5 text-right">10%</th>
+                  <th class="px-2.5 py-2.5 text-center">Gred</th>
+                </tr>
+              </thead>
+              <tbody id="fullStudentBody" class="divide-y divide-slate-200"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    let allStudents = [];
+    let charts = {};
+
+    document.addEventListener("DOMContentLoaded", () => {
+      lucide.createIcons();
+      const savedUrl = localStorage.getItem("pajsk_sheet_url") || DEFAULT_GOOGLE_SHEET_XLSX_URL;
+      if (savedUrl) {
+        document.getElementById("sheetUrlInput").value = savedUrl;
+        document.getElementById("btnRefresh").classList.remove("hidden");
+        loadFromUrl(savedUrl);
+      }
+    });
+
+    function toggleConfigModal() {
+      document.getElementById("configModal").classList.toggle("hidden");
+    }
+
+    function saveAndLoadSheetUrl() {
+      let url = document.getElementById("sheetUrlInput").value.trim();
+      if (!url) return alert("Sila masukkan pautan Google Sheet (.xlsx).");
+      // Tukar pautan edit Google Sheet secara automatik kepada pautan export xlsx jika pengguna tampal URL biasa
+      const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+      if (match && !url.includes("/pub?") && !url.includes("export?format=xlsx")) {
+        url = `https://docs.google.com/spreadsheets/d/${match[1]}/export?format=xlsx`;
+      }
+      localStorage.setItem("pajsk_sheet_url", url);
+      document.getElementById("btnRefresh").classList.remove("hidden");
+      toggleConfigModal();
+      loadFromUrl(url);
+    }
+
+    function syncFromSavedUrl() {
+      const url = localStorage.getItem("pajsk_sheet_url") || DEFAULT_GOOGLE_SHEET_XLSX_URL;
+      if (url) loadFromUrl(url);
+    }
+
+    async function loadFromUrl(url) {
+      setStatus("loading", "Sedang memuat turun & memproses data dari Google Sheets...");
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const buffer = await res.arrayBuffer();
+        parseWorkbook(buffer, "Google Sheets (Live)");
+      } catch (err) {
+        console.error(err);
+        setStatus("error", "Gagal memuat turun Google Sheet. Pastikan helaian telah diterbitkan (Publish to Web -> .xlsx) atau muat naik fail .xlsx secara terus.");
+      }
+    }
+
+    function handleFileUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      setStatus("loading", `Memproses fail ${file.name}...`);
+      const reader = new FileReader();
+      reader.onload = (e) => parseWorkbook(e.target.result, file.name);
+      reader.readAsArrayBuffer(file);
+    }
+
+    function setStatus(type, msg) {
+      const dot = document.getElementById("statusDot");
+      const text = document.getElementById("statusText");
+      dot.className = "w-2.5 h-2.5 rounded-full inline-block " +
+        (type === "ok" ? "bg-emerald-500" : type === "error" ? "bg-rose-500" : "bg-amber-400 animate-pulse");
+      text.textContent = msg;
+    }
+
+    function parseScoreDetail(val) {
+      if (!val) return { raw: null, pct: null, text: "-" };
+      const str = String(val).trim();
+      const m = str.match(/^([\d.]+)\s*\(([\d.]+)%\)/);
+      if (m) return { raw: parseFloat(m[1]), pct: parseFloat(m[2]), text: str };
+      return { raw: null, pct: null, text: str };
+    }
+
+    function parseWorkbook(arrayBuffer, sourceLabel) {
+      const wb = XLSX.read(arrayBuffer, { type: "array" });
+      const parsed = [];
+      const validClassRegex = /^[1-5][A-Z0-9]+$/i;
+
+      wb.SheetNames.forEach((sheetName) => {
+        const cleanSheet = sheetName.trim();
+        if (!validClassRegex.test(cleanSheet)) return;
+
+        const tingkatan = cleanSheet.charAt(0);
+        const ws = wb.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+
+        for (let r = 2; r < rows.length; r++) {
+          const row = rows[r];
+          if (!row) continue;
+          const nama = row[1] ? String(row[1]).trim() : "";
+          if (!nama || nama.toLowerCase() === "nama") continue;
+
+          const nextRow = rows[r + 1] || [];
+          const gpaVal = parseFloat(row[10]);
+          const cgpaVal = parseFloat(row[11]);
+          const status = row[13] ? String(row[13]).trim().toUpperCase() : "DITAKSIR";
+          const isAssessed = !isNaN(cgpaVal) && status === "DITAKSIR";
+
+          const kelabDetail = parseScoreDetail(nextRow[3]);
+          const bbDetail = parseScoreDetail(nextRow[5]);
+          const sukanDetail = parseScoreDetail(nextRow[7]);
+
+          parsed.push({
+            bill: row[0] || "",
+            nama,
+            ic: row[2] ? String(row[2]).trim() : "-",
+            tingkatan,
+            kelas: cleanSheet.toUpperCase(),
+            kelab: row[3] ? String(row[3]).replace(/\s*\(SM\)/gi, "").trim() : "-",
+            kelabTambahan: row[4] ? String(row[4]).trim() : "-",
+            kelabSkor: kelabDetail.raw,
+            kelabPct: kelabDetail.pct,
+            bb: row[5] ? String(row[5]).replace(/\s*\(SM\)/gi, "").trim() : "-",
+            bbTambahan: row[6] ? String(row[6]).trim() : "-",
+            bbSkor: bbDetail.raw,
+            bbPct: bbDetail.pct,
+            sukan: row[7] ? String(row[7]).replace(/\s*\(SM\)/gi, "").trim() : "-",
+            sukanTambahan: row[8] ? String(row[8]).trim() : "-",
+            sukanSkor: sukanDetail.raw,
+            sukanPct: sukanDetail.pct,
+            ekstra: row[9] ? String(row[9]).trim() : "-",
+            gpa: isNaN(gpaVal) ? null : gpaVal,
+            cgpa: isNaN(cgpaVal) ? null : cgpaVal,
+            markah10: isNaN(cgpaVal) ? null : cgpaVal / 10,
+            gred: row[12] ? String(row[12]).trim().toUpperCase() : "TL",
+            status,
+            isAssessed
+          });
+        }
+      });
+
+      if (parsed.length === 0) {
+        setStatus("error", "Tiada rekod murid ditemui. Pastikan nama tab helaian adalah nama kelas seperti 1S1, 2S1, 5S3.");
+        return;
+      }
+
+      allStudents = parsed;
+      populateClassFilter();
+      document.getElementById("emptyState").classList.add("hidden");
+      document.getElementById("dashboardContent").classList.remove("hidden");
+      document.getElementById("btnExport").disabled = false;
+      document.getElementById("lastUpdated").textContent = `Dikemas kini: ${new Date().toLocaleTimeString("ms-MY")}`;
+      setStatus("ok", `Berjaya memuatkan ${allStudents.length} rekod murid daripada ${sourceLabel}.`);
+      onTingkatanChange();
+    }
+
+    function populateClassFilter() {
+      const ting = document.getElementById("filterTingkatan").value;
+      const kelasSelect = document.getElementById("filterKelas");
+      const classes = [...new Set(allStudents
+        .filter((s) => ting === "ALL" || s.tingkatan === ting)
+        .map((s) => s.kelas))].sort();
+      kelasSelect.innerHTML = `<option value="ALL">Semua Kelas (${classes.length})</option>` +
+        classes.map((c) => `<option value="${c}">${c}</option>`).join("");
+    }
+
+    function onTingkatanChange() {
+      populateClassFilter();
+      const ting = document.getElementById("filterTingkatan").value;
+      document.getElementById("benchmarkInput").value = BENCHMARK_2025[ting] ?? 1.56;
+      renderAll();
+    }
+
+    function getFilteredStudents() {
+      const ting = document.getElementById("filterTingkatan").value;
+      const kelas = document.getElementById("filterKelas").value;
+      return allStudents.filter((s) => {
+        if (ting !== "ALL" && s.tingkatan !== ting) return false;
+        if (kelas !== "ALL" && s.kelas !== kelas) return false;
+        return true;
+      });
+    }
+
+    // Kiraan GP / LEG / G KIRA tepat seperti ANALISIS PAJSK SMKKA 2025.xlsx
+    function computeGpStats(students) {
+      const assessed = students.filter((s) => s.isAssessed);
+      const buckets = {
+        b10: 0, b9: 0, b8: 0,
+        b7: 0, b6: 0,
+        b5: 0, b4: 0,
+        b3: 0, b2: 0,
+        b1: 0, b0: 0
+      };
+
+      assessed.forEach((s) => {
+        const m = s.markah10;
+        if (m >= 10) buckets.b10++;
+        else if (m >= 9) buckets.b9++;
+        else if (m >= 8) buckets.b8++;
+        else if (m >= 7) buckets.b7++;
+        else if (m >= 6) buckets.b6++;
+        else if (m >= 5) buckets.b5++;
+        else if (m >= 4) buckets.b4++;
+        else if (m >= 3) buckets.b3++;
+        else if (m >= 2) buckets.b2++;
+        else if (m >= 1) buckets.b1++;
+        else buckets.b0++;
+      });
+
+      const sumA = buckets.b10 + buckets.b9 + buckets.b8;
+      const sumB = buckets.b7 + buckets.b6;
+      const sumC = buckets.b5 + buckets.b4;
+      const sumD = buckets.b3 + buckets.b2;
+      const sumE = buckets.b1 + buckets.b0;
+
+      const gkiraA = 1 * sumA;
+      const gkiraB = 2 * sumB;
+      const gkiraC = 3 * sumC;
+      const gkiraD = 4 * sumD;
+      const gkiraE = 5 * sumE;
+
+      const totalAssessed = assessed.length;
+      const totalGkira = gkiraA + gkiraB + gkiraC + gkiraD + gkiraE;
+      const gp = totalAssessed > 0 ? totalGkira / totalAssessed : 0;
+
+      return {
+        total: students.length,
+        totalAssessed,
+        totalTL: students.length - totalAssessed,
+        buckets,
+        sumA, sumB, sumC, sumD, sumE,
+        gkiraA, gkiraB, gkiraC, gkiraD, gkiraE,
+        totalGkira,
+        gp
+      };
+    }
+
+    function renderAll() {
+      const filtered = getFilteredStudents();
+      const stats = computeGpStats(filtered);
+      const assessed = filtered.filter((s) => s.isAssessed);
+      const benchmark = parseFloat(document.getElementById("benchmarkInput").value) || 0;
+
+      // Update KPI Cards
+      document.getElementById("kpiTotal").textContent = stats.total;
+      document.getElementById("kpiAssessed").textContent = `${stats.totalAssessed} Ditaksir | ${stats.totalTL} TL`;
+      document.getElementById("kpiGps2026").textContent = stats.gp.toFixed(2);
+
+      if (benchmark > 0 && stats.totalAssessed > 0) {
+        const diff = stats.gp - benchmark;
+        const improved = diff <= 0;
+        document.getElementById("kpiGpsDiff").innerHTML = improved
+          ? `<span class="text-emerald-600">&#9660; ${Math.abs(diff).toFixed(2)} (Lebih baik drpd ${benchmark.toFixed(2)})</span>`
+          : `<span class="text-rose-600">&#9650; +${diff.toFixed(2)} (Sasaran 2025: ${benchmark.toFixed(2)})</span>`;
+      } else {
+        document.getElementById("kpiGpsDiff").textContent = "-";
+      }
+
+      const pctA = stats.totalAssessed > 0 ? ((stats.sumA / stats.totalAssessed) * 100).toFixed(1) : "0.0";
+      document.getElementById("kpiGradeA").textContent = stats.sumA;
+      document.getElementById("kpiGradeAPct").textContent = `${pctA}% murid ditaksir`;
+
+      const avgCgpa = assessed.length > 0 ? assessed.reduce((acc, s) => acc + s.cgpa, 0) / assessed.length : 0;
+      document.getElementById("kpiAvgCgpa").textContent = avgCgpa.toFixed(2);
+      document.getElementById("kpiAvg10").textContent = `Markah 10%: ${(avgCgpa / 10).toFixed(2)}`;
+
+      const borderlineList = assessed.filter((s) => s.cgpa >= 75.0 && s.cgpa < 80.0);
+      document.getElementById("kpiBorderline").textContent = borderlineList.length;
+
+      renderGpTable(stats, benchmark);
+      renderTingSummaryTable();
+      renderCharts(stats);
+      renderClassAndComponents(filtered);
+      renderFocusLists(filtered, borderlineList);
+      renderStudentTable();
+    }
+
+    function renderGpTable(stats, benchmark) {
+      const ting = document.getElementById("filterTingkatan").value;
+      const kelas = document.getElementById("filterKelas").value;
+      const label = kelas !== "ALL" ? `KELAS ${kelas}` : (ting !== "ALL" ? `TINGKATAN ${ting}` : "SEMUA TINGKATAN");
+      document.getElementById("tableScopeBadge").textContent = label;
+
+      const rows = [
+        { gp: 1, gred: "A", range: "10", count: stats.buckets.b10, sum: stats.sumA, gkira: stats.gkiraA, span: 3, bg: "bg-emerald-50/60" },
+        { range: "9 - 9.99", count: stats.buckets.b9, bg: "bg-emerald-50/60" },
+        { range: "8 - 8.99", count: stats.buckets.b8, bg: "bg-emerald-50/60" },
+        { gp: 2, gred: "B", range: "7 - 7.99", count: stats.buckets.b7, sum: stats.sumB, gkira: stats.gkiraB, span: 2, bg: "bg-blue-50/50" },
+        { range: "6 - 6.99", count: stats.buckets.b6, bg: "bg-blue-50/50" },
+        { gp: 3, gred: "C", range: "5 - 5.99", count: stats.buckets.b5, sum: stats.sumC, gkira: stats.gkiraC, span: 2, bg: "bg-amber-50/50" },
+        { range: "4 - 4.99", count: stats.buckets.b4, bg: "bg-amber-50/50" },
+        { gp: 4, gred: "D", range: "3 - 3.99", count: stats.buckets.b3, sum: stats.sumD, gkira: stats.gkiraD, span: 2, bg: "bg-orange-50/50" },
+        { range: "2 - 2.99", count: stats.buckets.b2, bg: "bg-orange-50/50" },
+        { gp: 5, gred: "E", range: "1 - 1.99", count: stats.buckets.b1, sum: stats.sumE, gkira: stats.gkiraE, span: 2, bg: "bg-rose-50/50" },
+        { range: "0 - 0.99", count: stats.buckets.b0, bg: "bg-rose-50/50" },
+      ];
+
+      let html = rows.map((r) => {
+        let cells = "";
+        if (r.span) {
+          cells += `<td rowspan="${r.span}" class="border border-slate-300 px-3 py-1.5 text-center font-bold">${r.gp}</td>`;
+          cells += `<td rowspan="${r.span}" class="border border-slate-300 px-3 py-1.5 text-center font-extrabold text-base">${r.gred}</td>`;
+        }
+        cells += `<td class="border border-slate-300 px-3 py-1.5 text-center font-mono text-xs">${r.range}</td>`;
+        cells += `<td class="border border-slate-300 px-3 py-1.5 text-right font-semibold">${r.count}</td>`;
+        if (r.span) {
+          cells += `<td rowspan="${r.span}" class="border border-slate-300 px-3 py-1.5 text-right font-bold bg-white">${r.sum}</td>`;
+          cells += `<td rowspan="${r.span}" class="border border-slate-300 px-3 py-1.5 text-right font-bold bg-white">${r.gkira}</td>`;
+        }
+        return `<tr class="${r.bg}">${cells}</tr>`;
+      }).join("");
+
+      html += `
+        <tr class="bg-slate-200 font-bold text-slate-900">
+          <td colspan="3" class="border border-slate-300 px-3 py-2 text-right">JUMLAH DITAKSIR</td>
+          <td class="border border-slate-300 px-3 py-2 text-right">${stats.totalAssessed}</td>
+          <td class="border border-slate-300 px-3 py-2 text-right">${stats.totalAssessed}</td>
+          <td class="border border-slate-300 px-3 py-2 text-right">${stats.totalGkira}</td>
+        </tr>
+        <tr class="bg-blue-900 text-white font-extrabold">
+          <td colspan="5" class="border border-slate-300 px-3 py-2 text-right">GPT / GPS 2026</td>
+          <td class="border border-slate-300 px-3 py-2 text-right text-base">${stats.gp.toFixed(2)}</td>
+        </tr>
+        <tr class="bg-slate-100 text-slate-700 font-semibold">
+          <td colspan="5" class="border border-slate-300 px-3 py-1.5 text-right">SASARAN / GPT 2025</td>
+          <td class="border border-slate-300 px-3 py-1.5 text-right">${benchmark ? benchmark.toFixed(2) : "-"}</td>
+        </tr>
+      `;
+      document.getElementById("gpTableBody").innerHTML = html;
+    }
+
+    function renderTingSummaryTable() {
+      const levels = ["1", "2", "3", "4", "5"];
+      let html = levels.map((t) => {
+        const list = allStudents.filter((s) => s.tingkatan === t);
+        const st = computeGpStats(list);
+        const b25 = BENCHMARK_2025[t];
+        const diff = st.totalAssessed > 0 ? st.gp - b25 : 0;
+        const pctA = st.totalAssessed > 0 ? ((st.sumA / st.totalAssessed) * 100).toFixed(1) + "%" : "-";
+        const badge = st.totalAssessed === 0 ? "-" : (diff <= 0
+          ? `<span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold text-xs">${diff.toFixed(2)}</span>`
+          : `<span class="bg-rose-100 text-rose-800 px-2 py-0.5 rounded font-bold text-xs">+${diff.toFixed(2)}</span>`);
+
+        return `
+          <tr class="hover:bg-slate-50">
+            <td class="border border-slate-300 px-3 py-2 font-bold">Tingkatan ${t}</td>
+            <td class="border border-slate-300 px-3 py-2 text-right">${st.total}</td>
+            <td class="border border-slate-300 px-3 py-2 text-right">${st.totalAssessed}</td>
+            <td class="border border-slate-300 px-3 py-2 text-right font-semibold text-emerald-700">${st.sumA}</td>
+            <td class="border border-slate-300 px-3 py-2 text-right font-semibold text-blue-700">${st.sumB}</td>
+            <td class="border border-slate-300 px-3 py-2 text-right">${st.sumC}</td>
+            <td class="border border-slate-300 px-3 py-2 text-right">${st.sumD}</td>
+            <td class="border border-slate-300 px-3 py-2 text-right">${st.sumE}</td>
+            <td class="border border-slate-300 px-3 py-2 text-right font-semibold">${pctA}</td>
+            <td class="border border-slate-300 px-3 py-2 text-right font-extrabold text-blue-900">${st.totalAssessed > 0 ? st.gp.toFixed(2) : "-"}</td>
+            <td class="border border-slate-300 px-3 py-2 text-right text-slate-500">${b25.toFixed(2)}</td>
+            <td class="border border-slate-300 px-3 py-2 text-center">${badge}</td>
+          </tr>
+        `;
+      }).join("");
+
+      const allSt = computeGpStats(allStudents);
+      const gps25 = BENCHMARK_2025["ALL"];
+      const gpsDiff = allSt.gp - gps25;
+      const allPctA = allSt.totalAssessed > 0 ? ((allSt.sumA / allSt.totalAssessed) * 100).toFixed(1) + "%" : "-";
+      html += `
+        <tr class="bg-blue-50 font-extrabold text-slate-900">
+          <td class="border border-slate-300 px-3 py-2">KESELURUHAN SEKOLAH (GPS)</td>
+          <td class="border border-slate-300 px-3 py-2 text-right">${allSt.total}</td>
+          <td class="border border-slate-300 px-3 py-2 text-right">${allSt.totalAssessed}</td>
+          <td class="border border-slate-300 px-3 py-2 text-right text-emerald-700">${allSt.sumA}</td>
+          <td class="border border-slate-300 px-3 py-2 text-right text-blue-700">${allSt.sumB}</td>
+          <td class="border border-slate-300 px-3 py-2 text-right">${allSt.sumC}</td>
+          <td class="border border-slate-300 px-3 py-2 text-right">${allSt.sumD}</td>
+          <td class="border border-slate-300 px-3 py-2 text-right">${allSt.sumE}</td>
+          <td class="border border-slate-300 px-3 py-2 text-right">${allPctA}</td>
+          <td class="border border-slate-300 px-3 py-2 text-right text-blue-900 text-base">${allSt.gp.toFixed(2)}</td>
+          <td class="border border-slate-300 px-3 py-2 text-right">${gps25.toFixed(2)}</td>
+          <td class="border border-slate-300 px-3 py-2 text-center">${gpsDiff <= 0 ? gpsDiff.toFixed(2) : "+" + gpsDiff.toFixed(2)}</td>
+        </tr>
+      `;
+      document.getElementById("tingSummaryBody").innerHTML = html;
+    }
+
+    function renderCharts(currentStats) {
+      const levels = ["1", "2", "3", "4", "5"];
+      const gpt2026Data = levels.map((t) => {
+        const st = computeGpStats(allStudents.filter((s) => s.tingkatan === t));
+        return st.totalAssessed > 0 ? Number(st.gp.toFixed(2)) : 0;
+      });
+      const gpt2025Data = levels.map((t) => BENCHMARK_2025[t]);
+
+      if (charts.gptCompare) charts.gptCompare.destroy();
+      charts.gptCompare = new Chart(document.getElementById("gptCompareChart"), {
+        type: "bar",
+        data: {
+          labels: ["Ting 1", "Ting 2", "Ting 3", "Ting 4", "Ting 5"],
+          datasets: [
+            { label: "GPT 2026", data: gpt2026Data, backgroundColor: "#1d4ed8", borderRadius: 6 },
+            { label: "GPT 2025", data: gpt2025Data, backgroundColor: "#94a3b8", borderRadius: 6 }
+          ]
+        },
+        options: {
+          responsive: true,
+          scales: { y: { beginAtZero: true, max: 3.0 } }
+        }
+      });
+
+      if (charts.gradeDist) charts.gradeDist.destroy();
+      charts.gradeDist = new Chart(document.getElementById("gradeDistChart"), {
+        type: "doughnut",
+        data: {
+          labels: ["Gred A (GP 1)", "Gred B (GP 2)", "Gred C (GP 3)", "Gred D (GP 4)", "Gred E (GP 5)"],
+          datasets: [{
+            data: [currentStats.sumA, currentStats.sumB, currentStats.sumC, currentStats.sumD, currentStats.sumE],
+            backgroundColor: ["#10b981", "#3b82f6", "#f59e0b", "#f97316", "#ef4444"]
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { position: "right" } }
+        }
+      });
+    }
+
+    function renderClassAndComponents(filtered) {
+      const classes = [...new Set(filtered.map((s) => s.kelas))].sort();
+      document.getElementById("classSummaryBody").innerHTML = classes.map((c) => {
+        const list = filtered.filter((s) => s.kelas === c);
+        const st = computeGpStats(list);
+        const ass = list.filter((s) => s.isAssessed);
+        const avgGpa = ass.length ? (ass.reduce((a, b) => a + (b.gpa || 0), 0) / ass.length).toFixed(2) : "-";
+        const avgCgpa = ass.length ? (ass.reduce((a, b) => a + b.cgpa, 0) / ass.length).toFixed(2) : "-";
+        const avg10 = ass.length ? (ass.reduce((a, b) => a + b.markah10, 0) / ass.length).toFixed(2) : "-";
+        return `
+          <tr class="hover:bg-slate-50">
+            <td class="border border-slate-300 px-3 py-2 font-bold text-blue-900">${c}</td>
+            <td class="border border-slate-300 px-3 py-2 text-right">${st.total}</td>
+            <td class="border border-slate-300 px-3 py-2 text-right">${st.totalAssessed}</td>
+            <td class="border border-slate-300 px-3 py-2 text-right ${st.totalTL > 0 ? "text-rose-600 font-bold" : ""}">${st.totalTL}</td>
+            <td class="border border-slate-300 px-3 py-2 text-right text-emerald-700 font-semibold">${st.sumA}</td>
+            <td class="border border-slate-300 px-3 py-2 text-right text-blue-700 font-semibold">${st.sumB}</td>
+            <td class="border border-slate-300 px-3 py-2 text-right">${st.sumC}</td>
+            <td class="border border-slate-300 px-3 py-2 text-right">${avgGpa}</td>
+            <td class="border border-slate-300 px-3 py-2 text-right font-semibold">${avgCgpa}</td>
+            <td class="border border-slate-300 px-3 py-2 text-right">${avg10}</td>
+            <td class="border border-slate-300 px-3 py-2 text-right font-extrabold text-blue-900">${st.totalAssessed ? st.gp.toFixed(2) : "-"}</td>
+          </tr>
+        `;
+      }).join("");
+
+      // Purata 3 Komponen Kokurikulum
+      const ass = filtered.filter((s) => s.isAssessed);
+      const calcComp = (keySkor, keyPct) => {
+        const valid = ass.filter((s) => typeof s[keySkor] === "number");
+        if (!valid.length) return { avgSkor: "0.0", avgPct: "0.0" };
+        return {
+          avgSkor: (valid.reduce((a, b) => a + b[keySkor], 0) / valid.length).toFixed(2),
+          avgPct: (valid.reduce((a, b) => a + (b[keyPct] || 0), 0) / valid.length).toFixed(2)
+        };
+      };
+      const cKelab = calcComp("kelabSkor", "kelabPct");
+      const cBB = calcComp("bbSkor", "bbPct");
+      const cSukan = calcComp("sukanSkor", "sukanPct");
+
+      document.getElementById("componentCards").innerHTML = [
+        { title: "Kelab & Persatuan", skor: cKelab.avgSkor, pct: cKelab.avgPct, color: "indigo" },
+        { title: "Badan Beruniform", skor: cBB.avgSkor, pct: cBB.avgPct, color: "emerald" },
+        { title: "Sukan & Permainan", skor: cSukan.avgSkor, pct: cSukan.avgPct, color: "amber" }
+      ].map((item) => `
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-4">
+          <div class="text-xs font-bold uppercase text-slate-400">Purata Komponen</div>
+          <div class="text-base font-extrabold text-slate-800 mt-0.5">${item.title}</div>
+          <div class="mt-3 flex items-baseline justify-between">
+            <div>
+              <span class="text-2xl font-extrabold text-blue-800">${item.skor}</span>
+              <span class="text-xs text-slate-500">/ 110</span>
+            </div>
+            <span class="text-sm font-bold text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full">${item.pct}%</span>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function renderFocusLists(filtered, borderlineList) {
+      const cemerlang = filtered
+        .filter((s) => s.isAssessed && s.cgpa >= 80.0)
+        .sort((a, b) => b.cgpa - a.cgpa);
+
+      document.getElementById("countCemerlang").textContent = `${cemerlang.length} Murid`;
+      document.getElementById("cemerlangBody").innerHTML = cemerlang.map((s, idx) => `
+        <tr class="hover:bg-emerald-50/50">
+          <td class="px-2.5 py-1.5 text-slate-500">${idx + 1}</td>
+          <td class="px-2.5 py-1.5 font-semibold text-slate-800">${s.nama}</td>
+          <td class="px-2.5 py-1.5 text-center font-bold">${s.kelas}</td>
+          <td class="px-2.5 py-1.5 text-right font-bold text-emerald-700">${s.cgpa.toFixed(2)}</td>
+          <td class="px-2.5 py-1.5 text-right font-mono">${s.markah10.toFixed(2)}</td>
+        </tr>
+      `).join("") || `<tr><td colspan="5" class="p-4 text-center text-slate-400">Tiada rekod</td></tr>`;
+
+      const sortedBorder = [...borderlineList].sort((a, b) => b.cgpa - a.cgpa);
+      document.getElementById("countBorderline").textContent = `${sortedBorder.length} Murid`;
+      document.getElementById("borderlineBody").innerHTML = sortedBorder.map((s, idx) => `
+        <tr class="hover:bg-amber-50/50">
+          <td class="px-2.5 py-1.5 text-slate-500">${idx + 1}</td>
+          <td class="px-2.5 py-1.5 font-semibold text-slate-800">${s.nama}</td>
+          <td class="px-2.5 py-1.5 text-center font-bold">${s.kelas}</td>
+          <td class="px-2.5 py-1.5 text-right font-bold text-amber-700">${s.cgpa.toFixed(2)}</td>
+          <td class="px-2.5 py-1.5 text-right text-rose-600 font-semibold">-${(80 - s.cgpa).toFixed(2)}</td>
+        </tr>
+      `).join("") || `<tr><td colspan="5" class="p-4 text-center text-slate-400">Tiada murid dalam julat borderline</td></tr>`;
+
+      const tlList = filtered.filter((s) => !s.isAssessed);
+      const tlSec = document.getElementById("tlSection");
+      if (tlList.length > 0) {
+        tlSec.classList.remove("hidden");
+        document.getElementById("tlBody").innerHTML = tlList.map((s, idx) => `
+          <tr>
+            <td class="px-3 py-1.5">${idx + 1}</td>
+            <td class="px-3 py-1.5 font-semibold">${s.nama}</td>
+            <td class="px-3 py-1.5 font-mono">${s.ic}</td>
+            <td class="px-3 py-1.5 text-center font-bold">${s.kelas}</td>
+            <td class="px-3 py-1.5 text-center text-rose-700 font-bold">${s.status}</td>
+          </tr>
+        `).join("");
+      } else {
+        tlSec.classList.add("hidden");
+      }
+    }
+
+    function renderStudentTable() {
+      let list = [...getFilteredStudents()];
+      const q = document.getElementById("searchStudent").value.trim().toLowerCase();
+      const sortBy = document.getElementById("sortStudent").value;
+
+      if (q) {
+        list = list.filter((s) =>
+          s.nama.toLowerCase().includes(q) ||
+          s.kelas.toLowerCase().includes(q) ||
+          s.kelab.toLowerCase().includes(q) ||
+          s.bb.toLowerCase().includes(q) ||
+          s.sukan.toLowerCase().includes(q)
+        );
+      }
+
+      list.sort((a, b) => {
+        if (sortBy === "cgpa_desc") return (b.cgpa ?? -1) - (a.cgpa ?? -1);
+        if (sortBy === "cgpa_asc") return (a.cgpa ?? 999) - (b.cgpa ?? 999);
+        if (sortBy === "name_asc") return a.nama.localeCompare(b.nama);
+        if (sortBy === "class_asc") return a.kelas.localeCompare(b.kelas) || a.nama.localeCompare(b.nama);
+        return 0;
+      });
+
+      document.getElementById("fullStudentBody").innerHTML = list.map((s, idx) => {
+        const gradeBadge = s.gred === "A" ? "bg-emerald-100 text-emerald-800"
+          : s.gred === "B" ? "bg-blue-100 text-blue-800"
+          : s.gred === "C" ? "bg-amber-100 text-amber-800"
+          : "bg-rose-100 text-rose-800";
+        return `
+          <tr class="hover:bg-slate-50">
+            <td class="px-2.5 py-2 text-center font-bold text-slate-500">${idx + 1}</td>
+            <td class="px-2.5 py-2 font-semibold text-slate-800">${s.nama}</td>
+            <td class="px-2.5 py-2 text-center font-bold text-blue-900">${s.kelas}</td>
+            <td class="px-2.5 py-2">${s.kelab} ${s.kelabSkor !== null ? `<span class="text-slate-400">(${s.kelabSkor})</span>` : ""}</td>
+            <td class="px-2.5 py-2">${s.bb} ${s.bbSkor !== null ? `<span class="text-slate-400">(${s.bbSkor})</span>` : ""}</td>
+            <td class="px-2.5 py-2">${s.sukan} ${s.sukanSkor !== null ? `<span class="text-slate-400">(${s.sukanSkor})</span>` : ""}</td>
+            <td class="px-2.5 py-2 text-slate-600">${s.ekstra}</td>
+            <td class="px-2.5 py-2 text-right">${s.gpa !== null ? s.gpa.toFixed(2) : "TL"}</td>
+            <td class="px-2.5 py-2 text-right font-bold">${s.cgpa !== null ? s.cgpa.toFixed(2) : "TL"}</td>
+            <td class="px-2.5 py-2 text-right font-mono">${s.markah10 !== null ? s.markah10.toFixed(2) : "-"}</td>
+            <td class="px-2.5 py-2 text-center"><span class="px-2 py-0.5 rounded font-bold ${gradeBadge}">${s.gred}</span></td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    function switchTab(tabName) {
+      ["gpt", "kelas", "fokus", "murid"].forEach((t) => {
+        document.getElementById(`panel-${t}`).classList.toggle("hidden", t !== tabName);
+        const btn = document.getElementById(`tab-${t}`);
+        if (t === tabName) {
+          btn.classList.add("tab-active");
+          btn.classList.remove("text-slate-600");
+        } else {
+          btn.classList.remove("tab-active");
+          btn.classList.add("text-slate-600");
+        }
+      });
+    }
+
+    function exportAnalysisToExcel() {
+      if (!allStudents.length) return;
+      const wb = XLSX.utils.book_new();
+
+      // Helaian 1: Rumusan GPT & GPS
+      const levels = ["1", "2", "3", "4", "5"];
+      const rumusanRows = levels.map((t) => {
+        const st = computeGpStats(allStudents.filter((s) => s.tingkatan === t));
+        return {
+          Tingkatan: `Tingkatan ${t}`,
+          Jumlah_Murid: st.total,
+          Ditaksir: st.totalAssessed,
+          Tidak_Ditaksir: st.totalTL,
+          Gred_A: st.sumA,
+          Gred_B: st.sumB,
+          Gred_C: st.sumC,
+          Gred_D: st.sumD,
+          Gred_E: st.sumE,
+          Jumlah_G_Kira: st.totalGkira,
+          GPT_2026: Number(st.gp.toFixed(2)),
+          GPT_2025: BENCHMARK_2025[t]
+        };
+      });
+      const allSt = computeGpStats(allStudents);
+      rumusanRows.push({
+        Tingkatan: "KESELURUHAN SEKOLAH (GPS)",
+        Jumlah_Murid: allSt.total,
+        Ditaksir: allSt.totalAssessed,
+        Tidak_Ditaksir: allSt.totalTL,
+        Gred_A: allSt.sumA,
+        Gred_B: allSt.sumB,
+        Gred_C: allSt.sumC,
+        Gred_D: allSt.sumD,
+        Gred_E: allSt.sumE,
+        Jumlah_G_Kira: allSt.totalGkira,
+        GPT_2026: Number(allSt.gp.toFixed(2)),
+        GPT_2025: BENCHMARK_2025["ALL"]
+      });
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rumusanRows), "RUMUSAN_GPT_GPS");
+
+      // Helaian 2: Data Bersih & Markah 10%
+      const studentRows = [...allStudents]
+        .sort((a, b) => (b.cgpa ?? -1) - (a.cgpa ?? -1))
+        .map((s, i) => ({
+          Kedudukan: i + 1,
+          Tingkatan: `Tingkatan ${s.tingkatan}`,
+          Kelas: s.kelas,
+          Nama: s.nama,
+          No_KP: s.ic,
+          Kelab_Persatuan: s.kelab,
+          Skor_Kelab: s.kelabSkor,
+          Badan_Beruniform: s.bb,
+          Skor_BB: s.bbSkor,
+          Sukan_Permainan: s.sukan,
+          Skor_Sukan: s.sukanSkor,
+          Ekstra_Kurikulum: s.ekstra,
+          GPA: s.gpa ?? "TL",
+          CGPA: s.cgpa ?? "TL",
+          Markah_10_Peratus: s.markah10 !== null ? Number(s.markah10.toFixed(2)) : "TL",
+          Gred: s.gred,
+          Status: s.status
+        }));
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(studentRows), "ANALISIS_MURID_2026");
+
+      XLSX.writeFile(wb, "ANALISIS_PAJSK_SMKKA_2026.xlsx");
+    }
+  </script>
+</body>
+</html>
