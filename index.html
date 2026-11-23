@@ -1,1089 +1,1728 @@
 <!DOCTYPE html>
 <html lang="ms">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Analisis PAJSK SMKKA 2026</title>
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- SheetJS untuk membaca Google Sheet (.xlsx) & Fail Excel -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <!-- Chart.js untuk Graf Interaktif -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <!-- Lucide Icons -->
-  <script src="https://unpkg.com/lucide@latest"></script>
-  <style>
-    @media print {
-      .no-print { display: none !important; }
-      body { background: #fff !important; }
-      .print-break { page-break-before: always; }
-    }
-    .tab-active {
-      border-bottom: 3px solid #1d4ed8;
-      color: #1d4ed8;
-      font-weight: 700;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Analisis PAJSK Bersepadu</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- SheetJS (XLSX Parser & Exporter) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        @media print {
+            .no-print { display: none !important; }
+            .print-only { display: block !important; }
+            body { background: white !important; }
+            .shadow-sm, .shadow-md, .shadow-lg, .shadow-xl { box-shadow: none !important; }
+            .border { border-color: #cbd5e1 !important; }
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 9999px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+    </style>
 </head>
-<body class="bg-slate-50 text-slate-800 min-h-screen font-sans">
+<body class="bg-slate-50 text-slate-800 antialiased selection:bg-blue-600 selection:text-white">
 
-  <!-- KONFIGURASI LALAI (Tampal pautan Google Sheet .xlsx anda di sini jika mahu auto-muat tanpa perlu isi setiap kali) -->
-  <script>
-    const DEFAULT_GOOGLE_SHEET_XLSX_URL = ""; 
-    // Contoh: "https://docs.google.com/spreadsheets/d/ID_SHEET_ANDA/export?format=xlsx"
-    // Atau pautan Publish to Web: "https://docs.google.com/spreadsheets/d/e/2PACX-.../pub?output=xlsx"
+    <!-- ==================== TOAST NOTIFICATION ==================== -->
+    <div id="toastContainer" class="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none"></div>
 
-    // Penanda Aras GPT & GPS 2025 (daripada ANALISIS PAJSK SMKKA 2025.xlsx)
-    const BENCHMARK_2025 = {
-      "1": 1.33,
-      "2": 1.84,
-      "3": 1.96,
-      "4": 1.40,
-      "5": 1.28,
-      "ALL": 1.56
-    };
-  </script>
-
-  <!-- HEADER -->
-  <header class="bg-gradient-to-r from-blue-900 via-blue-800 to-indigo-900 text-white shadow-lg">
-    <div class="max-w-7xl mx-auto px-4 py-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-      <div>
-        <div class="flex items-center gap-2 text-blue-200 text-xs uppercase tracking-wider font-semibold">
-          <i data-lucide="award" class="w-4 h-4"></i> Unit Kokurikulum SMKKA
-        </div>
-        <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight mt-0.5">
-          Sistem Analisis PAJSK 2026
-        </h1>
-        <p class="text-blue-100 text-sm mt-1">
-          Dashboard Automatik GPA, CGPA, Markah 10%, GPT &amp; GPS (Integrasi Google Sheets)
-        </p>
-      </div>
-
-      <div class="flex flex-wrap items-center gap-2 no-print">
-        <button onclick="toggleConfigModal()" class="bg-white/15 hover:bg-white/25 text-white px-3.5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition">
-          <i data-lucide="link" class="w-4 h-4"></i> Sambung Google Sheet
-        </button>
-        <label class="bg-emerald-500 hover:bg-emerald-600 text-white px-3.5 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 cursor-pointer transition shadow">
-          <i data-lucide="upload" class="w-4 h-4"></i> Muat Naik .XLSX
-          <input type="file" id="excelFileInput" accept=".xlsx,.xls" class="hidden" onchange="handleFileUpload(event)" />
-        </label>
-        <button onclick="exportAnalysisToExcel()" id="btnExport" disabled class="bg-amber-500 hover:bg-amber-600 disabled:opacity-40 text-white px-3.5 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition shadow">
-          <i data-lucide="download" class="w-4 h-4"></i> Eksport Analisis
-        </button>
-        <button onclick="window.print()" class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-1.5 transition">
-          <i data-lucide="printer" class="w-4 h-4"></i>
-        </button>
-      </div>
-    </div>
-  </header>
-
-  <!-- STATUS BAR -->
-  <div class="bg-white border-b border-slate-200">
-    <div class="max-w-7xl mx-auto px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600">
-      <div class="flex items-center gap-2">
-        <span id="statusDot" class="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block"></span>
-        <span id="statusText" class="font-medium">Sedia memuatkan data. Sila sambungkan pautan Google Sheet atau muat naik fail PAJSK 2026.xlsx.</span>
-      </div>
-      <div class="flex items-center gap-3 no-print">
-        <button onclick="syncFromSavedUrl()" id="btnRefresh" class="hidden text-blue-700 hover:underline font-semibold flex items-center gap-1">
-          <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Muat Semula Data Sheet
-        </button>
-        <span id="lastUpdated" class="text-slate-400"></span>
-      </div>
-    </div>
-  </div>
-
-  <!-- MODAL SAMBUNG GOOGLE SHEET -->
-  <div id="configModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4 no-print">
-    <div class="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl">
-      <div class="flex items-center justify-between border-b pb-3">
-        <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
-          <i data-lucide="sheet" class="w-5 h-5 text-emerald-600"></i> Tetapan Pautan Google Sheets
-        </h2>
-        <button onclick="toggleConfigModal()" class="text-slate-400 hover:text-slate-600">
-          <i data-lucide="x" class="w-5 h-5"></i>
-        </button>
-      </div>
-      <div class="mt-4 space-y-3 text-sm text-slate-600">
-        <p>Untuk membaca semua 12 tab kelas (<code class="bg-slate-100 px-1.5 py-0.5 rounded">1S1</code> hingga <code class="bg-slate-100 px-1.5 py-0.5 rounded">5S3</code>) terus dari Google Sheets:</p>
-        <ol class="list-decimal list-inside space-y-1 bg-blue-50 p-3 rounded-lg text-slate-700 text-xs">
-          <li>Buka Google Sheet data PAJSK 2026 anda.</li>
-          <li>Klik <strong>File (Fail) &rarr; Share (Kongsi) &rarr; Publish to web (Terbitkan ke web)</strong>.</li>
-          <li>Pilih <strong>Entire Document</strong> dan format <strong>Microsoft Excel (.xlsx)</strong>, kemudian klik <strong>Publish</strong>.</li>
-          <li>Salin pautan yang dijana dan tampal di bawah:</li>
-        </ol>
-        <div>
-          <label class="block font-semibold text-slate-700 mb-1">Pautan Google Sheet (.xlsx):</label>
-          <input type="url" id="sheetUrlInput" placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=xlsx"
-            class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
-        </div>
-      </div>
-      <div class="mt-5 flex justify-end gap-2">
-        <button onclick="toggleConfigModal()" class="px-4 py-2 rounded-lg border text-sm font-medium hover:bg-slate-50">Batal</button>
-        <button onclick="saveAndLoadSheetUrl()" class="px-4 py-2 rounded-lg bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold">Simpan &amp; Muat Data</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- MAIN CONTENT -->
-  <main class="max-w-7xl mx-auto px-4 py-6">
-
-    <!-- EMPTY STATE (Ditunjuk sebelum data dimuatkan) -->
-    <div id="emptyState" class="bg-white rounded-2xl border border-dashed border-slate-300 p-10 text-center max-w-2xl mx-auto my-8 shadow-sm">
-      <div class="w-16 h-16 bg-blue-100 text-blue-700 rounded-2xl flex items-center justify-center mx-auto mb-4">
-        <i data-lucide="bar-chart-3" class="w-8 h-8"></i>
-      </div>
-      <h2 class="text-xl font-bold text-slate-800">Belum Ada Data PAJSK Dimuatkan</h2>
-      <p class="text-slate-500 text-sm mt-2">
-        Muat naik fail <strong>PAJSK 2026.xlsx</strong> atau sambungkan pautan <strong>Google Sheets</strong> anda untuk menjana analisis lengkap GPT, GPS, Gred, dan Fokus Intervensi secara automatik.
-      </p>
-      <div class="mt-6 flex flex-wrap justify-center gap-3">
-        <button onclick="toggleConfigModal()" class="bg-blue-700 hover:bg-blue-800 text-white px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 shadow">
-          <i data-lucide="link" class="w-4 h-4"></i> Sambung Google Sheet
-        </button>
-        <label class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 cursor-pointer shadow">
-          <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> Pilih Fail PAJSK 2026.xlsx
-          <input type="file" accept=".xlsx,.xls" class="hidden" onchange="handleFileUpload(event)" />
-        </label>
-      </div>
+    <!-- ==================== LOADING OVERLAY ==================== -->
+    <div id="loadingOverlay" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex-col items-center justify-center text-white">
+        <div class="w-12 h-12 border-4 border-blue-400 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p id="loadingText" class="text-sm font-medium tracking-wide">Menghubungi Pangkalan Data Google Sheet...</p>
     </div>
 
-    <!-- DASHBOARD CONTAINER -->
-    <div id="dashboardContent" class="hidden space-y-6">
-
-      <!-- PENAPIS GLOBAL (FILTER) -->
-      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-4 no-print">
-        <div class="flex flex-wrap items-center gap-3">
-          <div>
-            <label class="block text-[11px] font-bold uppercase text-slate-400">Tingkatan</label>
-            <select id="filterTingkatan" onchange="onTingkatanChange()" class="mt-0.5 border border-slate-300 rounded-lg px-3 py-1.5 text-sm font-semibold bg-white">
-              <option value="ALL">Semua Tingkatan (Sekolah)</option>
-              <option value="1">Tingkatan 1</option>
-              <option value="2">Tingkatan 2</option>
-              <option value="3">Tingkatan 3</option>
-              <option value="4">Tingkatan 4</option>
-              <option value="5">Tingkatan 5</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-[11px] font-bold uppercase text-slate-400">Kelas</label>
-            <select id="filterKelas" onchange="renderAll()" class="mt-0.5 border border-slate-300 rounded-lg px-3 py-1.5 text-sm font-semibold bg-white">
-              <option value="ALL">Semua Kelas</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-[11px] font-bold uppercase text-slate-400">Penanda Aras GPT/GPS 2025</label>
-            <input type="number" step="0.01" id="benchmarkInput" onchange="renderAll()" class="mt-0.5 border border-slate-300 rounded-lg px-3 py-1.5 text-sm font-semibold w-28" />
-          </div>
-        </div>
-        <div class="text-right text-xs text-slate-500">
-          <span class="font-semibold text-slate-700">Nota GP:</span> Lebih rendah nilai GPT/GPS, lebih cemerlang pencapaian (Skala 1.00 – 5.00).
-        </div>
-      </div>
-
-      <!-- KAD KPI UTAMA -->
-      <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-          <div class="text-xs font-semibold text-slate-400 uppercase">Jumlah Murid</div>
-          <div id="kpiTotal" class="text-2xl font-extrabold text-slate-800 mt-1">0</div>
-          <div id="kpiAssessed" class="text-xs text-emerald-600 font-medium mt-1">0 Ditaksir | 0 TL</div>
-        </div>
-        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-          <div class="text-xs font-semibold text-slate-400 uppercase">GPT / GPS 2026</div>
-          <div id="kpiGps2026" class="text-2xl font-extrabold text-blue-700 mt-1">0.00</div>
-          <div id="kpiGpsDiff" class="text-xs font-semibold mt-1">-</div>
-        </div>
-        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-          <div class="text-xs font-semibold text-slate-400 uppercase">Gred A (GP 1)</div>
-          <div id="kpiGradeA" class="text-2xl font-extrabold text-emerald-600 mt-1">0</div>
-          <div id="kpiGradeAPct" class="text-xs text-slate-500 mt-1">0.0% murid ditaksir</div>
-        </div>
-        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-          <div class="text-xs font-semibold text-slate-400 uppercase">Purata CGPA</div>
-          <div id="kpiAvgCgpa" class="text-2xl font-extrabold text-indigo-700 mt-1">0.00</div>
-          <div id="kpiAvg10" class="text-xs text-slate-500 mt-1">Markah 10%: 0.00</div>
-        </div>
-        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 col-span-2 md:col-span-1">
-          <div class="text-xs font-semibold text-slate-400 uppercase">Fokus Borderline</div>
-          <div id="kpiBorderline" class="text-2xl font-extrabold text-amber-600 mt-1">0</div>
-          <div class="text-xs text-slate-500 mt-1">Markah 75.00 – 79.99</div>
-        </div>
-      </div>
-
-      <!-- TAB NAVIGASI -->
-      <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div class="flex overflow-x-auto border-b border-slate-200 px-2 no-print">
-          <button onclick="switchTab('gpt')" id="tab-gpt" class="tab-btn tab-active px-4 py-3 text-sm whitespace-nowrap">
-            1. Analisis GPT, GPS &amp; Julat (LEG)
-          </button>
-          <button onclick="switchTab('kelas')" id="tab-kelas" class="tab-btn px-4 py-3 text-sm text-slate-600 hover:text-blue-700 whitespace-nowrap">
-            2. Prestasi Mengikut Kelas &amp; Komponen
-          </button>
-          <button onclick="switchTab('fokus')" id="tab-fokus" class="tab-btn px-4 py-3 text-sm text-slate-600 hover:text-blue-700 whitespace-nowrap">
-            3. Senarai Cemerlang &amp; Fokus Borderline
-          </button>
-          <button onclick="switchTab('murid')" id="tab-murid" class="tab-btn px-4 py-3 text-sm text-slate-600 hover:text-blue-700 whitespace-nowrap">
-            4. Kedudukan &amp; Rekod Penuh Murid
-          </button>
-        </div>
-
-        <!-- TAB 1: ANALISIS GPT, GPS & LEG -->
-        <div id="panel-gpt" class="p-5 space-y-6">
-          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            <!-- JADUAL GP & LEG (Padanan Exact Excel 2025) -->
-            <div class="lg:col-span-7 overflow-x-auto">
-              <div class="flex items-center justify-between mb-2">
-                <h3 class="font-bold text-slate-800 text-base">Jadual Pengiraan Gred Purata (GP / LEG / G KIRA)</h3>
-                <span id="tableScopeBadge" class="text-xs bg-blue-100 text-blue-800 font-bold px-2.5 py-0.5 rounded-full">SEMUA TINGKATAN</span>
-              </div>
-              <table class="w-full text-sm border-collapse border border-slate-300">
-                <thead>
-                  <tr class="bg-slate-800 text-white text-xs uppercase">
-                    <th class="border border-slate-300 px-3 py-2 text-center">GP</th>
-                    <th class="border border-slate-300 px-3 py-2 text-center">Gred</th>
-                    <th class="border border-slate-300 px-3 py-2 text-center">Julat 10%</th>
-                    <th class="border border-slate-300 px-3 py-2 text-right">Bil (LEG)</th>
-                    <th class="border border-slate-300 px-3 py-2 text-right">Jumlah</th>
-                    <th class="border border-slate-300 px-3 py-2 text-right">G Kira</th>
-                  </tr>
-                </thead>
-                <tbody id="gpTableBody" class="divide-y divide-slate-200"></tbody>
-              </table>
+    <!-- ==================== LOGIN SCREEN ==================== -->
+    <div id="loginSection" class="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200/20">
+            <div class="bg-gradient-to-r from-blue-900 to-indigo-900 p-8 text-center text-white relative overflow-hidden">
+                <div class="absolute -top-10 -right-10 w-32 h-32 bg-white/5 rounded-full blur-xl"></div>
+                <div class="w-16 h-16 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center mx-auto mb-4 border border-white/20 shadow-inner">
+                    <i data-lucide="bar-chart-3" class="w-8 h-8 text-emerald-400"></i>
+                </div>
+                <h1 class="text-2xl font-bold tracking-tight">Sistem Analisis PAJSK</h1>
+                <p class="text-blue-200 text-xs mt-1.5 font-medium">Integrasi Berpusat Google Sheets & GitHub Pages</p>
             </div>
 
-            <!-- GRAF TABURAN & PERBANDINGAN -->
-            <div class="lg:col-span-5 space-y-5">
-              <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                <h4 class="text-sm font-bold text-slate-700 mb-2">Perbandingan GPT 2026 vs 2025 Mengikut Tingkatan</h4>
-                <canvas id="gptCompareChart" height="190"></canvas>
-              </div>
-              <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                <h4 class="text-sm font-bold text-slate-700 mb-2">Taburan Gred (Pilihan Semasa)</h4>
-                <canvas id="gradeDistChart" height="160"></canvas>
-              </div>
-            </div>
-          </div>
+            <form id="loginForm" class="p-8 space-y-5">
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">ID Pengguna / Kod Sekolah</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400">
+                            <i data-lucide="user" class="w-4 h-4"></i>
+                        </span>
+                        <input type="text" id="loginUsername" required autocomplete="username"
+                            class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-600 focus:border-blue-600 focus:bg-white transition-all outline-none"
+                            placeholder="Masukkan ID Pengguna">
+                    </div>
+                </div>
 
-          <!-- JADUAL RINGKASAN SEMUA TINGKATAN -->
-          <div>
-            <h3 class="font-bold text-slate-800 text-base mb-2">Ringkasan Perbandingan Mengikut Tingkatan (1 hingga 5)</h3>
-            <div class="overflow-x-auto">
-              <table class="w-full text-sm border-collapse border border-slate-300">
-                <thead>
-                  <tr class="bg-blue-900 text-white text-xs uppercase">
-                    <th class="border border-slate-300 px-3 py-2 text-left">Tingkatan</th>
-                    <th class="border border-slate-300 px-3 py-2 text-right">Calon</th>
-                    <th class="border border-slate-300 px-3 py-2 text-right">Ditaksir</th>
-                    <th class="border border-slate-300 px-3 py-2 text-right">A</th>
-                    <th class="border border-slate-300 px-3 py-2 text-right">B</th>
-                    <th class="border border-slate-300 px-3 py-2 text-right">C</th>
-                    <th class="border border-slate-300 px-3 py-2 text-right">D</th>
-                    <th class="border border-slate-300 px-3 py-2 text-right">E</th>
-                    <th class="border border-slate-300 px-3 py-2 text-right">% Gred A</th>
-                    <th class="border border-slate-300 px-3 py-2 text-right">GPT 2026</th>
-                    <th class="border border-slate-300 px-3 py-2 text-right">GPT 2025</th>
-                    <th class="border border-slate-300 px-3 py-2 text-center">Beza</th>
-                  </tr>
-                </thead>
-                <tbody id="tingSummaryBody"></tbody>
-              </table>
-            </div>
-          </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Kata Laluan</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400">
+                            <i data-lucide="lock" class="w-4 h-4"></i>
+                        </span>
+                        <input type="password" id="loginPassword" required autocomplete="current-password"
+                            class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-600 focus:border-blue-600 focus:bg-white transition-all outline-none"
+                            placeholder="••••••••">
+                    </div>
+                </div>
+
+                <button type="submit"
+                    class="w-full bg-blue-700 hover:bg-blue-800 text-white font-semibold py-3 px-4 rounded-xl shadow-lg shadow-blue-700/25 transition-all flex items-center justify-center gap-2 text-sm">
+                    <i data-lucide="log-in" class="w-4 h-4"></i> Log Masuk ke Sistem
+                </button>
+
+                <div class="pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                    <span class="flex items-center gap-1"><i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-600"></i> Pengesahan Selamat Sheet</span>
+                    <button type="button" onclick="openSetupModal()" class="text-blue-600 hover:underline font-medium flex items-center gap-1">
+                        <i data-lucide="code-2" class="w-3.5 h-3.5"></i> Skrip Google Sheet
+                    </button>
+                </div>
+            </form>
         </div>
-
-        <!-- TAB 2: PRESTASI KELAS & KOMPONEN -->
-        <div id="panel-kelas" class="p-5 hidden space-y-6">
-          <div>
-            <h3 class="font-bold text-slate-800 text-base mb-2">Analisis Prestasi Mengikut Kelas (1S1 – 5S3)</h3>
-            <div class="overflow-x-auto">
-              <table class="w-full text-sm border-collapse border border-slate-300">
-                <thead>
-                  <tr class="bg-slate-800 text-white text-xs uppercase">
-                    <th class="border border-slate-300 px-3 py-2 text-left">Kelas</th>
-                    <th class="border border-slate-300 px-3 py-2 text-right">Murid</th>
-                    <th class="border border-slate-300 px-3 py-2 text-right">Ditaksir</th>
-                    <th class="border border-slate-300 px-3 py-2 text-right">TL</th>
-                    <th class="border border-slate-300 px-3 py-2 text-right">Gred A</th>
-                    <th class="border border-slate-300 px-3 py-2 text-right">Gred B</th>
-                    <th class="border border-slate-300 px-3 py-2 text-right">Gred C</th>
-                    <th class="border border-slate-300 px-3 py-2 text-right">Purata GPA</th>
-                    <th class="border border-slate-300 px-3 py-2 text-right">Purata CGPA</th>
-                    <th class="border border-slate-300 px-3 py-2 text-right">Markah 10%</th>
-                    <th class="border border-slate-300 px-3 py-2 text-right">GPK 2026</th>
-                  </tr>
-                </thead>
-                <tbody id="classSummaryBody"></tbody>
-              </table>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="componentCards"></div>
-        </div>
-
-        <!-- TAB 3: FOKUS BORDERLINE & CEMERLANG -->
-        <div id="panel-fokus" class="p-5 hidden space-y-6">
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <!-- SENARAI MURID CEMERLANG (GRED A >= 80) -->
-            <div>
-              <div class="flex items-center justify-between mb-2">
-                <h3 class="font-bold text-emerald-800 text-base flex items-center gap-1.5">
-                  <i data-lucide="star" class="w-4 h-4 text-emerald-600"></i> Calon Cemerlang / Gred A (&ge; 8.00)
-                </h3>
-                <span id="countCemerlang" class="text-xs bg-emerald-100 text-emerald-800 font-bold px-2.5 py-0.5 rounded-full">0</span>
-              </div>
-              <div class="overflow-x-auto max-h-[480px] border border-slate-200 rounded-lg">
-                <table class="w-full text-xs">
-                  <thead class="bg-emerald-800 text-white sticky top-0">
-                    <tr>
-                      <th class="px-2.5 py-2 text-left">Bil</th>
-                      <th class="px-2.5 py-2 text-left">Nama Murid</th>
-                      <th class="px-2.5 py-2 text-center">Kelas</th>
-                      <th class="px-2.5 py-2 text-right">CGPA</th>
-                      <th class="px-2.5 py-2 text-right">10%</th>
-                    </tr>
-                  </thead>
-                  <tbody id="cemerlangBody" class="divide-y divide-slate-200"></tbody>
-                </table>
-              </div>
-            </div>
-
-            <!-- SENARAI FOKUS MARKAH BORDERLINE (75.00 - 79.99) -->
-            <div>
-              <div class="flex items-center justify-between mb-2">
-                <h3 class="font-bold text-amber-800 text-base flex items-center gap-1.5">
-                  <i data-lucide="target" class="w-4 h-4 text-amber-600"></i> Fokus Markah Borderline (7.50 – 7.99)
-                </h3>
-                <span id="countBorderline" class="text-xs bg-amber-100 text-amber-800 font-bold px-2.5 py-0.5 rounded-full">0</span>
-              </div>
-              <div class="overflow-x-auto max-h-[480px] border border-slate-200 rounded-lg">
-                <table class="w-full text-xs">
-                  <thead class="bg-amber-700 text-white sticky top-0">
-                    <tr>
-                      <th class="px-2.5 py-2 text-left">Bil</th>
-                      <th class="px-2.5 py-2 text-left">Nama Murid</th>
-                      <th class="px-2.5 py-2 text-center">Kelas</th>
-                      <th class="px-2.5 py-2 text-right">CGPA</th>
-                      <th class="px-2.5 py-2 text-right">Beza ke A</th>
-                    </tr>
-                  </thead>
-                  <tbody id="borderlineBody" class="divide-y divide-slate-200"></tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-
-          <!-- MURID BELUM DITAKSIR (TL) -->
-          <div id="tlSection" class="hidden">
-            <h3 class="font-bold text-rose-700 text-base mb-2">Senarai Murid Belum Ditaksir (Status: TL)</h3>
-            <div class="overflow-x-auto border border-rose-200 rounded-lg">
-              <table class="w-full text-xs">
-                <thead class="bg-rose-700 text-white">
-                  <tr>
-                    <th class="px-3 py-2 text-left">Bil</th>
-                    <th class="px-3 py-2 text-left">Nama Murid</th>
-                    <th class="px-3 py-2 text-left">No. KP</th>
-                    <th class="px-3 py-2 text-center">Kelas</th>
-                    <th class="px-3 py-2 text-center">Status</th>
-                  </tr>
-                </thead>
-                <tbody id="tlBody" class="divide-y divide-rose-100"></tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <!-- TAB 4: REKOD PENUH MURID -->
-        <div id="panel-murid" class="p-5 hidden space-y-4">
-          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 no-print">
-            <div class="relative flex-1 max-w-md">
-              <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
-              <input type="text" id="searchStudent" oninput="renderStudentTable()" placeholder="Cari nama murid, kelas, kelab, badan beruniform atau sukan..."
-                class="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
-            </div>
-            <div class="flex items-center gap-2 text-xs">
-              <label class="font-semibold text-slate-600">Susun Mengikut:</label>
-              <select id="sortStudent" onchange="renderStudentTable()" class="border border-slate-300 rounded-lg px-2.5 py-1.5 font-semibold">
-                <option value="cgpa_desc">CGPA Tertinggi (Ranking)</option>
-                <option value="cgpa_asc">CGPA Terendah</option>
-                <option value="name_asc">Nama (A - Z)</option>
-                <option value="class_asc">Kelas</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="overflow-x-auto border border-slate-200 rounded-xl max-h-[600px]">
-            <table class="w-full text-xs">
-              <thead class="bg-slate-800 text-white sticky top-0">
-                <tr>
-                  <th class="px-2.5 py-2.5 text-center">Ked</th>
-                  <th class="px-2.5 py-2.5 text-left">Nama Murid</th>
-                  <th class="px-2.5 py-2.5 text-center">Kelas</th>
-                  <th class="px-2.5 py-2.5 text-left">Kelab &amp; Persatuan</th>
-                  <th class="px-2.5 py-2.5 text-left">Badan Beruniform</th>
-                  <th class="px-2.5 py-2.5 text-left">Sukan &amp; Permainan</th>
-                  <th class="px-2.5 py-2.5 text-left">Ekstra</th>
-                  <th class="px-2.5 py-2.5 text-right">GPA</th>
-                  <th class="px-2.5 py-2.5 text-right">CGPA</th>
-                  <th class="px-2.5 py-2.5 text-right">10%</th>
-                  <th class="px-2.5 py-2.5 text-center">Gred</th>
-                </tr>
-              </thead>
-              <tbody id="fullStudentBody" class="divide-y divide-slate-200"></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
     </div>
-  </main>
 
-  <script>
-    let allStudents = [];
-    let charts = {};
+    <!-- ==================== MAIN APPLICATION ==================== -->
+    <div id="appSection" class="hidden min-h-screen flex flex-col lg:flex-row">
+        
+        <!-- Sidebar Navigation -->
+        <aside class="no-print w-full lg:w-64 bg-slate-900 text-slate-300 flex flex-col shrink-0 shadow-xl z-20">
+            <div class="p-6 bg-slate-950/60 border-b border-slate-800 flex items-center justify-between lg:block">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-emerald-500 flex items-center justify-center text-white shadow-md">
+                        <i data-lucide="award" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-base font-bold text-white leading-tight">PAJSK Analytics</h2>
+                        <p class="text-[11px] text-emerald-400 font-medium tracking-wider uppercase">Portal Bersepadu</p>
+                    </div>
+                </div>
+                <!-- Mobile Menu Toggle -->
+                <button id="mobileMenuBtn" class="lg:hidden p-2 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white">
+                    <i data-lucide="menu" class="w-6 h-6"></i>
+                </button>
+            </div>
 
-    document.addEventListener("DOMContentLoaded", () => {
-      lucide.createIcons();
-      const savedUrl = localStorage.getItem("pajsk_sheet_url") || DEFAULT_GOOGLE_SHEET_XLSX_URL;
-      if (savedUrl) {
-        document.getElementById("sheetUrlInput").value = savedUrl;
-        document.getElementById("btnRefresh").classList.remove("hidden");
-        loadFromUrl(savedUrl);
+            <nav id="sidebarNav" class="hidden lg:flex flex-1 flex-col p-4 space-y-1.5">
+                <button onclick="switchTab('dashboard')" id="nav-dashboard"
+                    class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium bg-blue-600 text-white shadow-md shadow-blue-600/20 transition-all">
+                    <i data-lucide="layout-dashboard" class="w-4 h-4"></i> Papan Pemuka Analisis
+                </button>
+                <button onclick="switchTab('students')" id="nav-students"
+                    class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-400 hover:bg-slate-800/80 hover:text-white transition-all">
+                    <i data-lucide="users" class="w-4 h-4"></i> Senarai & Carian Murid
+                </button>
+                <button onclick="switchTab('upload')" id="nav-upload"
+                    class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-400 hover:bg-slate-800/80 hover:text-white transition-all">
+                    <i data-lucide="upload-cloud" class="w-4 h-4"></i> Muat Naik Excel (.xlsx)
+                </button>
+                <button onclick="switchTab('admin')" id="nav-admin"
+                    class="nav-btn hidden w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-400 hover:bg-slate-800/80 hover:text-white transition-all">
+                    <i data-lucide="shield" class="w-4 h-4"></i> Pengurusan Sekolah
+                </button>
+                <button onclick="switchTab('script')" id="nav-script"
+                    class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-400 hover:bg-slate-800/80 hover:text-white transition-all">
+                    <i data-lucide="file-code" class="w-4 h-4"></i> Kod Apps Script (Code.gs)
+                </button>
+
+                <div class="mt-auto pt-6 border-t border-slate-800/80">
+                    <div class="bg-slate-800/50 rounded-xl p-3.5 mb-3 border border-slate-700/50">
+                        <p class="text-[11px] text-slate-400 uppercase font-semibold">Akaun Aktif</p>
+                        <p id="userDisplayName" class="text-sm font-bold text-white truncate mt-0.5">-</p>
+                        <span id="userRoleBadge" class="inline-block mt-1.5 px-2 py-0.5 text-[10px] font-semibold rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                            Sekolah
+                        </span>
+                    </div>
+                    <button onclick="logout()"
+                        class="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-semibold border border-red-500/20 transition-all">
+                        <i data-lucide="log-out" class="w-4 h-4"></i> Log Keluar
+                    </button>
+                </div>
+            </nav>
+        </aside>
+
+        <!-- Main Content Area -->
+        <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
+            
+            <!-- Top Bar -->
+            <header class="no-print bg-white border-b border-slate-200 px-6 py-4 flex flex-wrap items-center justify-between gap-4 sticky top-0 z-10 shadow-sm">
+                <div>
+                    <h1 id="pageTitle" class="text-lg font-bold text-slate-900">Analisis Prestasi PAJSK</h1>
+                    <p id="pageSubtitle" class="text-xs text-slate-500">Paparan rumusan gred, julat GP (10%) dan pencapaian kelas</p>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2.5">
+                    <!-- Admin School Selector -->
+                    <div id="adminSchoolFilterBox" class="hidden items-center gap-2">
+                        <label class="text-xs font-semibold text-slate-600">Sekolah:</label>
+                        <select id="adminSchoolSelect" onchange="applyDashboardFilters()"
+                            class="text-xs font-medium bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-700 focus:ring-2 focus:ring-blue-600 outline-none">
+                            <option value="ALL">Semua Sekolah</option>
+                        </select>
+                    </div>
+
+                    <!-- Year Filter -->
+                    <div class="flex items-center gap-2">
+                        <label class="text-xs font-semibold text-slate-600">Tahun:</label>
+                        <select id="yearFilterSelect" onchange="applyDashboardFilters()"
+                            class="text-xs font-medium bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-700 focus:ring-2 focus:ring-blue-600 outline-none">
+                            <option value="ALL">Semua Tahun</option>
+                        </select>
+                    </div>
+
+                    <button onclick="fetchRecordsFromSheet()" title="Muat Semula Data dari Google Sheet"
+                        class="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors">
+                        <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                    </button>
+
+                    <button onclick="window.print()"
+                        class="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold px-3.5 py-2 rounded-lg shadow-sm transition-all">
+                        <i data-lucide="printer" class="w-3.5 h-3.5"></i> Cetak Laporan
+                    </button>
+                </div>
+            </header>
+
+            <!-- Content Body -->
+            <main class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6">
+
+                <!-- ==================== TAB 1: DASHBOARD ANALISIS ==================== -->
+                <div id="tab-dashboard" class="space-y-6">
+                    
+                    <!-- Print Header (Only visible when printing) -->
+                    <div class="hidden print-only border-b-2 border-slate-800 pb-4 mb-6">
+                        <h1 class="text-xl font-bold uppercase text-slate-900">LAPORAN ANALISIS PENCAPAIAN PAJSK</h1>
+                        <p id="printSchoolMeta" class="text-sm text-slate-600 mt-1"></p>
+                    </div>
+
+                    <!-- Empty State Banner -->
+                    <div id="emptyDataBanner" class="hidden bg-white rounded-2xl border border-slate-200 p-12 text-center shadow-sm">
+                        <div class="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                            <i data-lucide="file-spreadsheet" class="w-8 h-8"></i>
+                        </div>
+                        <h3 class="text-lg font-bold text-slate-800">Tiada Rekod PAJSK Dijumpai</h3>
+                        <p class="text-sm text-slate-500 max-w-md mx-auto mt-1.5">
+                            Belum ada data yang dimuat naik bagi sekolah atau tahun yang dipilih. Sila muat naik fail Excel (.xlsx) PAJSK untuk menjana analisis secara automatik.
+                        </p>
+                        <button onclick="switchTab('upload')" class="mt-5 inline-flex items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold px-5 py-2.5 rounded-xl shadow-md transition-all">
+                            <i data-lucide="upload" class="w-4 h-4"></i> Muat Naik Data Sekarang
+                        </button>
+                    </div>
+
+                    <div id="dashboardContent" class="space-y-6">
+                        <!-- KPI Summary Cards -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+                                <div>
+                                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Jumlah Murid Ditaksir</p>
+                                    <h3 id="kpiTotalStudents" class="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-1">0</h3>
+                                    <p id="kpiTotalClasses" class="text-xs text-slate-400 mt-1">0 Kelas terlibat</p>
+                                </div>
+                                <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                                    <i data-lucide="users" class="w-6 h-6"></i>
+                                </div>
+                            </div>
+
+                            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+                                <div>
+                                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Cemerlang (Gred A)</p>
+                                    <div class="flex items-baseline gap-2 mt-1">
+                                        <h3 id="kpiGradeACount" class="text-2xl sm:text-3xl font-extrabold text-emerald-600">0</h3>
+                                        <span id="kpiGradeAPercent" class="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">0.0%</span>
+                                    </div>
+                                    <p class="text-xs text-slate-400 mt-1">Markah CGPA ≥ 80.00</p>
+                                </div>
+                                <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                                    <i data-lucide="award" class="w-6 h-6"></i>
+                                </div>
+                            </div>
+
+                            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+                                <div>
+                                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Purata CGPA Sekolah</p>
+                                    <h3 id="kpiAvgCgpa" class="text-2xl sm:text-3xl font-extrabold text-indigo-700 mt-1">0.00</h3>
+                                    <p class="text-xs text-slate-400 mt-1">Skala penuh 100.00</p>
+                                </div>
+                                <div class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                                    <i data-lucide="trending-up" class="w-6 h-6"></i>
+                                </div>
+                            </div>
+
+                            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+                                <div>
+                                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Purata GP (10%)</p>
+                                    <h3 id="kpiAvgGp" class="text-2xl sm:text-3xl font-extrabold text-amber-600 mt-1">0.00</h3>
+                                    <p class="text-xs text-slate-400 mt-1">Wajaran 10% UPU / Merit</p>
+                                </div>
+                                <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                                    <i data-lucide="percent" class="w-6 h-6"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Interactive Charts Row -->
+                        <div class="no-print grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div>
+                                        <h3 class="text-sm font-bold text-slate-800">Taburan Gred Mengikut Tingkatan</h3>
+                                        <p class="text-xs text-slate-500">Perbandingan bilangan murid Gred A hingga E mengikut tingkatan</p>
+                                    </div>
+                                </div>
+                                <div class="h-72 relative">
+                                    <canvas id="gradeByFormChart"></canvas>
+                                </div>
+                            </div>
+
+                            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div>
+                                        <h3 class="text-sm font-bold text-slate-800">Taburan Julat GP (10%)</h3>
+                                        <p class="text-xs text-slate-500">Pecahan pencapaian markah merit 10% keseluruhan</p>
+                                    </div>
+                                </div>
+                                <div class="h-72 relative">
+                                    <canvas id="gpRangeChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- TABLE 1: ANALISIS GRED MENGIKUT TINGKATAN -->
+                        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                            <div class="px-6 py-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+                                <div>
+                                    <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wide">1. Rumusan Pencapaian Gred PAJSK Mengikut Tingkatan</h3>
+                                    <p class="text-xs text-slate-500">Analisis terperinci bilangan & peratusan gred keseluruhan</p>
+                                </div>
+                                <button onclick="exportTableToExcel('tableFormGrades', 'Analisis_Gred_Tingkatan')" class="no-print text-xs font-semibold text-blue-700 hover:bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-200 flex items-center gap-1.5">
+                                    <i data-lucide="download" class="w-3.5 h-3.5"></i> Eksport Excel
+                                </button>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table id="tableFormGrades" class="w-full text-xs text-center border-collapse">
+                                    <thead>
+                                        <tr class="bg-blue-950 text-white font-semibold uppercase">
+                                            <th class="py-3 px-4 text-left border-r border-blue-900">Tingkatan</th>
+                                            <th class="py-3 px-3 border-r border-blue-900">Calon</th>
+                                            <th class="py-3 px-3 bg-emerald-800 border-r border-blue-900">Gred A</th>
+                                            <th class="py-3 px-3 bg-emerald-900 border-r border-blue-900">% A</th>
+                                            <th class="py-3 px-3 border-r border-blue-900">Gred B</th>
+                                            <th class="py-3 px-3 border-r border-blue-900">Gred C</th>
+                                            <th class="py-3 px-3 border-r border-blue-900">Gred D</th>
+                                            <th class="py-3 px-3 border-r border-blue-900">Gred E</th>
+                                            <th class="py-3 px-3 border-r border-blue-900">TL</th>
+                                            <th class="py-3 px-3 bg-indigo-900 border-r border-blue-900">Purata CGPA</th>
+                                            <th class="py-3 px-3 bg-amber-700">Purata GP (10%)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tbodyFormGrades" class="divide-y divide-slate-200 font-medium text-slate-700"></tbody>
+                                    <tfoot id="tfootFormGrades" class="bg-slate-100 font-bold text-slate-900 border-t-2 border-slate-300"></tfoot>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- TABLE 2: ANALISIS JULAT GP (10%) MENGIKUT TINGKATAN -->
+                        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                            <div class="px-6 py-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+                                <div>
+                                    <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wide">2. Pecahan Julat GP (10%) Mengikut Tingkatan</h3>
+                                    <p class="text-xs text-slate-500">Taburan markah wajaran 10% (CGPA ÷ 10) mengikut kategori julat</p>
+                                </div>
+                                <button onclick="exportTableToExcel('tableFormGpRange', 'Analisis_Julat_GP')" class="no-print text-xs font-semibold text-blue-700 hover:bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-200 flex items-center gap-1.5">
+                                    <i data-lucide="download" class="w-3.5 h-3.5"></i> Eksport Excel
+                                </button>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table id="tableFormGpRange" class="w-full text-xs text-center border-collapse">
+                                    <thead>
+                                        <tr class="bg-slate-800 text-white font-semibold uppercase">
+                                            <th class="py-3 px-4 text-left border-r border-slate-700">Tingkatan</th>
+                                            <th class="py-3 px-3 border-r border-slate-700">Jumlah</th>
+                                            <th class="py-3 px-3 bg-emerald-800 border-r border-slate-700">9.00 - 10.00</th>
+                                            <th class="py-3 px-3 bg-teal-800 border-r border-slate-700">8.00 - 8.99</th>
+                                            <th class="py-3 px-3 bg-blue-800 border-r border-slate-700">7.00 - 7.99</th>
+                                            <th class="py-3 px-3 bg-indigo-800 border-r border-slate-700">6.00 - 6.99</th>
+                                            <th class="py-3 px-3 bg-amber-800 border-r border-slate-700">5.00 - 5.99</th>
+                                            <th class="py-3 px-3 bg-rose-900">&lt; 5.00</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tbodyFormGpRange" class="divide-y divide-slate-200 font-medium text-slate-700"></tbody>
+                                    <tfoot id="tfootFormGpRange" class="bg-slate-100 font-bold text-slate-900 border-t-2 border-slate-300"></tfoot>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- TABLE 3 & TOP STUDENTS GRID -->
+                        <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                            <!-- Analisis Mengikut Kelas (2/3 width) -->
+                            <div class="xl:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+                                <div class="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                                    <div>
+                                        <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wide">3. Analisis Pencapaian Mengikut Kelas</h3>
+                                        <p class="text-xs text-slate-500">Perincian setiap kelas mengikut susunan</p>
+                                    </div>
+                                    <button onclick="exportTableToExcel('tableClassAnalysis', 'Analisis_Kelas_PAJSK')" class="no-print text-xs font-semibold text-blue-700 hover:bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-200 flex items-center gap-1.5">
+                                        <i data-lucide="download" class="w-3.5 h-3.5"></i> Eksport
+                                    </button>
+                                </div>
+                                <div class="overflow-x-auto max-h-[460px]">
+                                    <table id="tableClassAnalysis" class="w-full text-xs text-center border-collapse">
+                                        <thead class="sticky top-0 z-10">
+                                            <tr class="bg-blue-950 text-white font-semibold uppercase">
+                                                <th class="py-2.5 px-3 text-left">Kelas</th>
+                                                <th class="py-2.5 px-2">Bil</th>
+                                                <th class="py-2.5 px-2 bg-emerald-800">A</th>
+                                                <th class="py-2.5 px-2">% A</th>
+                                                <th class="py-2.5 px-2">B</th>
+                                                <th class="py-2.5 px-2">C</th>
+                                                <th class="py-2.5 px-2">D</th>
+                                                <th class="py-2.5 px-2">E</th>
+                                                <th class="py-2.5 px-2 bg-indigo-900">CGPA</th>
+                                                <th class="py-2.5 px-2 bg-amber-700">GP 10%</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="tbodyClassAnalysis" class="divide-y divide-slate-200 font-medium text-slate-700"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- Top 15 Pelajar Cemerlang (1/3 width) -->
+                            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+                                <div class="px-6 py-4 bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950">
+                                    <div class="flex items-center gap-2">
+                                        <i data-lucide="trophy" class="w-5 h-5 text-slate-900"></i>
+                                        <h3 class="text-sm font-extrabold uppercase tracking-wide">Top 15 Pelajar Cemerlang</h3>
+                                    </div>
+                                    <p class="text-xs text-slate-900/80 font-medium mt-0.5">Skor CGPA & GP (10%) Tertinggi</p>
+                                </div>
+                                <div class="divide-y divide-slate-100 overflow-y-auto max-h-[460px]" id="topStudentsList">
+                                    <!-- Populated via JS -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ==================== TAB 2: SENARAI & CARIAN MURID ==================== -->
+                <div id="tab-students" class="hidden space-y-6">
+                    <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                        <div class="flex flex-wrap items-center justify-between gap-4">
+                            <div>
+                                <h3 class="text-base font-bold text-slate-800">Pangkalan Data Rekod Murid</h3>
+                                <p class="text-xs text-slate-500">Carian pantas dan penapisan individu mengikut kelas atau gred</p>
+                            </div>
+                            <button onclick="exportFilteredStudents()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-sm flex items-center gap-2 transition-all">
+                                <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> Muat Turun Excel (.xlsx)
+                            </button>
+                        </div>
+
+                        <!-- Search & Filter Controls -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
+                                    <i data-lucide="search" class="w-4 h-4"></i>
+                                </span>
+                                <input type="text" id="studentSearchInput" oninput="renderStudentTable()"
+                                    placeholder="Cari nama murid..."
+                                    class="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none">
+                            </div>
+
+                            <select id="studentFormFilter" onchange="renderStudentTable()"
+                                class="text-xs bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-600">
+                                <option value="ALL">Semua Tingkatan</option>
+                                <option value="1">Tingkatan 1</option>
+                                <option value="2">Tingkatan 2</option>
+                                <option value="3">Tingkatan 3</option>
+                                <option value="4">Tingkatan 4</option>
+                                <option value="5">Tingkatan 5</option>
+                            </select>
+
+                            <select id="studentClassFilter" onchange="renderStudentTable()"
+                                class="text-xs bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-600">
+                                <option value="ALL">Semua Kelas</option>
+                            </select>
+
+                            <select id="studentGradeFilter" onchange="renderStudentTable()"
+                                class="text-xs bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-600">
+                                <option value="ALL">Semua Gred</option>
+                                <option value="A">Gred A</option>
+                                <option value="B">Gred B</option>
+                                <option value="C">Gred C</option>
+                                <option value="D">Gred D</option>
+                                <option value="E">Gred E</option>
+                                <option value="TL">TL (Tidak Lengkap)</option>
+                            </select>
+                        </div>
+
+                        <!-- Student Table -->
+                        <div class="overflow-x-auto border border-slate-200 rounded-xl mt-4">
+                            <table class="w-full text-xs text-left">
+                                <thead class="bg-slate-900 text-white uppercase font-semibold">
+                                    <tr>
+                                        <th class="py-3 px-4">Bil</th>
+                                        <th class="py-3 px-4">Nama Murid</th>
+                                        <th class="py-3 px-4 text-center">Tingkatan</th>
+                                        <th class="py-3 px-4 text-center">Kelas</th>
+                                        <th class="py-3 px-4 text-center">GPA</th>
+                                        <th class="py-3 px-4 text-center">CGPA</th>
+                                        <th class="py-3 px-4 text-center">GP (10%)</th>
+                                        <th class="py-3 px-4 text-center">Gred</th>
+                                        <th class="py-3 px-4">Sekolah</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="studentTableBody" class="divide-y divide-slate-200"></tbody>
+                            </table>
+                        </div>
+                        <div class="flex items-center justify-between text-xs text-slate-500 pt-2">
+                            <span id="studentCountLabel">Memaparkan 0 rekod</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ==================== TAB 3: MUAT NAIK EXCEL ==================== -->
+                <div id="tab-upload" class="hidden max-w-4xl mx-auto space-y-6">
+                    <div class="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+                        <div class="border-b border-slate-100 pb-4">
+                            <h3 class="text-lg font-bold text-slate-900">Muat Naik Fail Mentah PAJSK (.xlsx)</h3>
+                            <p class="text-xs text-slate-500 mt-1">
+                                Sistem membaca fail Excel berbilang helaian (seperti <code class="bg-slate-100 px-1.5 py-0.5 rounded text-blue-700 font-semibold">PAJSK 2026.xlsx</code> dengan helaian <code class="bg-slate-100 px-1.5 py-0.5 rounded">1S1, 1S2, 2S1...</code>) secara automatik.
+                            </p>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5">Tahun Pentaksiran</label>
+                                <input type="number" id="uploadYearInput" value="2026" min="2020" max="2035"
+                                    class="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5">Kod / Nama Sekolah</label>
+                                <input type="text" id="uploadSchoolInput" readonly
+                                    class="w-full px-3.5 py-2.5 text-sm bg-slate-100 border border-slate-300 rounded-xl text-slate-600 font-semibold outline-none">
+                            </div>
+                        </div>
+
+                        <!-- Dropzone -->
+                        <div id="dropZone" onclick="document.getElementById('excelFileInput').click()"
+                            class="border-2 border-dashed border-blue-300 hover:border-blue-600 bg-blue-50/40 hover:bg-blue-50/80 rounded-2xl p-10 text-center cursor-pointer transition-all group">
+                            <input type="file" id="excelFileInput" accept=".xlsx, .xls" class="hidden" onchange="handleExcelSelect(event)">
+                            <div class="w-16 h-16 bg-white rounded-2xl shadow-sm border border-blue-100 flex items-center justify-center mx-auto mb-4 group-hover:scale-105 transition-transform">
+                                <i data-lucide="file-up" class="w-8 h-8 text-blue-600"></i>
+                            </div>
+                            <h4 class="text-sm font-bold text-slate-800">Klik untuk pilih fail Excel atau seret fail ke sini</h4>
+                            <p class="text-xs text-slate-500 mt-1">Menyokong fail format .xlsx / .xls (Semua helaian kelas akan diproses serentak)</p>
+                        </div>
+
+                        <!-- Preview Section before saving to Google Sheet -->
+                        <div id="uploadPreviewBox" class="hidden space-y-4 pt-4 border-t border-slate-200">
+                            <div class="flex flex-wrap items-center justify-between gap-3 bg-emerald-50 border border-emerald-200 p-4 rounded-xl">
+                                <div class="flex items-center gap-3">
+                                    <i data-lucide="check-circle-2" class="w-6 h-6 text-emerald-600 shrink-0"></i>
+                                    <div>
+                                        <h4 id="previewSummaryTitle" class="text-sm font-bold text-emerald-950">0 Rekod Murid Berjaya Diekstrak</h4>
+                                        <p id="previewSummarySheets" class="text-xs text-emerald-700">Helaian dikesan: -</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <label class="flex items-center gap-1.5 text-xs font-medium text-slate-700 bg-white px-3 py-2 rounded-lg border border-slate-200">
+                                        <input type="checkbox" id="replaceExistingCheck" checked class="rounded text-blue-600">
+                                        Ganti data lama tahun ini
+                                    </label>
+                                    <button onclick="submitParsedDataToSheet()"
+                                        class="bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow-md flex items-center gap-2 transition-all">
+                                        <i data-lucide="cloud-upload" class="w-4 h-4"></i> Simpan ke Google Sheet
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="overflow-x-auto max-h-64 border border-slate-200 rounded-xl">
+                                <table class="w-full text-xs text-left">
+                                    <thead class="bg-slate-100 text-slate-700 font-bold sticky top-0">
+                                        <tr>
+                                            <th class="py-2 px-3">Bil</th>
+                                            <th class="py-2 px-3">Nama Murid</th>
+                                            <th class="py-2 px-3">Kelas</th>
+                                            <th class="py-2 px-3 text-center">GPA</th>
+                                            <th class="py-2 px-3 text-center">CGPA</th>
+                                            <th class="py-2 px-3 text-center">GP (10%)</th>
+                                            <th class="py-2 px-3 text-center">Gred</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="previewTableBody" class="divide-y divide-slate-100"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ==================== TAB 4: PENGURUSAN SEKOLAH (ADMIN ONLY) ==================== -->
+                <div id="tab-admin" class="hidden space-y-6">
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <!-- Form Add School User -->
+                        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm h-fit">
+                            <h3 class="text-base font-bold text-slate-900 flex items-center gap-2 mb-4">
+                                <i data-lucide="user-plus" class="w-5 h-5 text-blue-600"></i> Daftar Akaun Sekolah Baharu
+                            </h3>
+                            <form id="addUserForm" class="space-y-4">
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Nama Penuh Sekolah</label>
+                                    <input type="text" id="newSchoolName" required placeholder="Contoh: SMK KOTA ALAM (SMKKA)"
+                                        class="w-full px-3 py-2.5 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1">ID Pengguna (Username)</label>
+                                    <input type="text" id="newSchoolUsername" required placeholder="Contoh: smkka"
+                                        class="w-full px-3 py-2.5 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Kata Laluan</label>
+                                    <input type="text" id="newSchoolPassword" required placeholder="Cipta kata laluan selamat"
+                                        class="w-full px-3 py-2.5 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Peranan</label>
+                                    <select id="newSchoolRole"
+                                        class="w-full px-3 py-2.5 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none">
+                                        <option value="sekolah">Pengguna Sekolah</option>
+                                        <option value="admin">Pentadbir Sistem (Admin)</option>
+                                    </select>
+                                </div>
+                                <button type="submit"
+                                    class="w-full bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold py-3 rounded-xl shadow-md transition-all">
+                                    Simpan Akaun ke Google Sheet
+                                </button>
+                            </form>
+                        </div>
+
+                        <!-- Registered Users List -->
+                        <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                            <div class="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                                <div>
+                                    <h3 class="text-sm font-bold text-slate-800 uppercase">Senarai Akaun Berdaftar dalam Google Sheet</h3>
+                                    <p class="text-xs text-slate-500">Data pengguna disimpan secara selamat dalam helaian <code class="text-blue-700 font-semibold">Users</code></p>
+                                </div>
+                                <button onclick="fetchUsersList()" class="text-xs font-semibold text-blue-700 hover:underline flex items-center gap-1">
+                                    <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Segar Semula
+                                </button>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-xs text-left">
+                                    <thead class="bg-slate-900 text-white uppercase">
+                                        <tr>
+                                            <th class="py-3 px-4">ID Pengguna</th>
+                                            <th class="py-3 px-4">Nama Sekolah</th>
+                                            <th class="py-3 px-4">Peranan</th>
+                                            <th class="py-3 px-4 text-right">Tindakan</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="usersTableBody" class="divide-y divide-slate-200"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ==================== TAB 5: KOD GOOGLE APPS SCRIPT ==================== -->
+                <div id="tab-script" class="hidden max-w-4xl mx-auto space-y-6">
+                    <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                            <div>
+                                <h3 class="text-base font-bold text-slate-900">Kod Google Apps Script (Code.gs)</h3>
+                                <p class="text-xs text-slate-500 mt-0.5">
+                                    Salin kod di bawah dan tampal ke dalam projek Google Apps Script anda (<code class="text-blue-700">SHEET_ID: 1_Zm_OLT9-sCO-KxjpurLvlrzO3J7dZW06WlS0IX8cLA</code>).
+                                </p>
+                            </div>
+                            <button onclick="copyAppsScriptCode()" class="bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold px-4 py-2.5 rounded-xl flex items-center gap-2 shadow-sm">
+                                <i data-lucide="copy" class="w-4 h-4"></i> Salin Kod Penuh
+                            </button>
+                        </div>
+
+                        <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 text-xs text-amber-900 space-y-1">
+                            <p class="font-bold">Langkah Deployment Penting:</p>
+                            <ol class="list-decimal list-inside space-y-1 text-amber-800">
+                                <li>Buka Google Apps Script bagi Web App URL anda dan tampal kod di bawah ke dalam fail <strong>Code.gs</strong>.</li>
+                                <li>Klik <strong>Deploy &gt; Manage deployments &gt; Edit (ikon pensel) &gt; Version: New version &gt; Deploy</strong>.</li>
+                                <li>Pastikan <em>Execute as: Me</em> dan <em>Who has access: Anyone</em>.</li>
+                                <li>Akaun lalai <strong>admin</strong> dengan kata laluan <strong>A@t021286</strong> akan dicipta secara automatik di helaian <code>Users</code> semasa log masuk pertama kali.</li>
+                            </ol>
+                        </div>
+
+                        <textarea id="appsScriptTextarea" readonly rows="20"
+                            class="w-full font-mono text-xs bg-slate-950 text-emerald-400 p-4 rounded-xl border border-slate-800 focus:outline-none leading-relaxed"></textarea>
+                    </div>
+                </div>
+
+            </main>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL SCRIPT (FOR LOGIN SCREEN) ==================== -->
+    <div id="setupModal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-2xl w-full p-6 space-y-4 shadow-2xl">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h3 class="text-base font-bold text-slate-900">Kod Sambungan Google Apps Script (Code.gs)</h3>
+                <button onclick="closeSetupModal()" class="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <p class="text-xs text-slate-600">
+                Pastikan skrip ini telah di-deploy sebagai <strong>New Version</strong> pada Web App URL anda supaya fungsi log masuk Google Sheet aktif.
+            </p>
+            <textarea id="modalScriptTextarea" readonly rows="14"
+                class="w-full font-mono text-xs bg-slate-950 text-emerald-400 p-4 rounded-xl border border-slate-800 focus:outline-none"></textarea>
+            <div class="flex justify-end gap-2">
+                <button onclick="copyModalScript()" class="bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold px-4 py-2 rounded-xl flex items-center gap-1.5">
+                    <i data-lucide="copy" class="w-3.5 h-3.5"></i> Salin Kod
+                </button>
+                <button onclick="closeSetupModal()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold px-4 py-2 rounded-xl">
+                    Tutup
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== APPLICATION JAVASCRIPT ==================== -->
+    <script>
+        // ==================== KONFIGURASI API GOOGLE APPS SCRIPT ====================
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyBQts4i2d6NK2gQHMgCoQRh2-i-kOHLpRIW1l4sBDjWxekN0BD_v6JHat65thHunq1/exec";
+        const SHEET_ID = "1_Zm_OLT9-sCO-KxjpurLvlrzO3J7dZW06WlS0IX8cLA";
+
+        // ==================== STATE APLIKASI ====================
+        let currentUser = null; // { username, namaSekolah, role }
+        let allRecords = [];    // Semua rekod murid dari Google Sheet
+        let filteredRecords = []; // Rekod murid selepas tapisan Sekolah & Tahun
+        let pendingUploadRecords = []; // Rekod dari fail Excel yang sedia untuk dimuat naik
+        let gradeChartInstance = null;
+        let gpRangeChartInstance = null;
+
+        // ==================== KOD GOOGLE APPS SCRIPT (CODE.GS) ====================
+        const GOOGLE_APPS_SCRIPT_CODE = `// =========================================================================
+// GOOGLE APPS SCRIPT (Code.gs) - SISTEM ANALISIS PAJSK BERPUSAT
+// Sheet ID: ${SHEET_ID}
+// =========================================================================
+
+const SHEET_ID = '${SHEET_ID}';
+
+function doPost(e) {
+  try {
+    const payload = JSON.parse(e.postData.contents);
+    const action = payload.action;
+    const ss = SpreadsheetApp.openById(SHEET_ID);
+    
+    // Pastikan helaian Users wujud & mempunyai akaun lalai admin
+    ensureUsersSheet(ss);
+    ensureDataSheet(ss);
+
+    if (action === 'login') {
+      return handleLogin(ss, payload);
+    } else if (action === 'getData') {
+      return handleGetData(ss, payload);
+    } else if (action === 'uploadData') {
+      return handleUploadData(ss, payload);
+    } else if (action === 'getUsers') {
+      return handleGetUsers(ss);
+    } else if (action === 'addUser') {
+      return handleAddUser(ss, payload);
+    } else if (action === 'deleteUser') {
+      return handleDeleteUser(ss, payload);
+    }
+
+    return jsonResponse({ status: 'error', message: 'Tindakan tidak sah.' });
+  } catch (err) {
+    return jsonResponse({ status: 'error', message: err.toString() });
+  }
+}
+
+function doGet(e) {
+  return jsonResponse({ status: 'ok', message: 'API Sistem Analisis PAJSK Aktif.' });
+}
+
+function ensureUsersSheet(ss) {
+  let sheet = ss.getSheetByName('Users');
+  if (!sheet) {
+    sheet = ss.insertSheet('Users');
+    sheet.appendRow(['Username', 'Password', 'NamaSekolah', 'Role']);
+    // Cipta akaun lalai admin di dalam Google Sheet
+    sheet.appendRow(['admin', 'A@t021286', 'PENTADBIR SISTEM (ADMIN)', 'admin']);
+  } else if (sheet.getLastRow() < 2) {
+    sheet.appendRow(['admin', 'A@t021286', 'PENTADBIR SISTEM (ADMIN)', 'admin']);
+  }
+  return sheet;
+}
+
+function ensureDataSheet(ss) {
+  let sheet = ss.getSheetByName('DataPAJSK');
+  if (!sheet) {
+    sheet = ss.insertSheet('DataPAJSK');
+    sheet.appendRow(['Sekolah', 'Tahun', 'Tingkatan', 'Kelas', 'Nama', 'GPA', 'CGPA', 'GP10', 'Gred']);
+  }
+  return sheet;
+}
+
+function handleLogin(ss, payload) {
+  const sheet = ss.getSheetByName('Users');
+  const data = sheet.getDataRange().getValues();
+  const uInput = String(payload.username || '').trim();
+  const pInput = String(payload.password || '').trim();
+
+  for (let i = 1; i < data.length; i++) {
+    const rowUser = String(data[i][0]).trim();
+    const rowPass = String(data[i][1]).trim();
+    if (rowUser === uInput && rowPass === pInput) {
+      return jsonResponse({
+        status: 'success',
+        user: {
+          username: rowUser,
+          namaSekolah: String(data[i][2]).trim(),
+          role: String(data[i][3]).trim() || 'sekolah'
+        }
+      });
+    }
+  }
+  return jsonResponse({ status: 'error', message: 'ID Pengguna atau Kata Laluan tidak sah.' });
+}
+
+function handleGetData(ss, payload) {
+  const sheet = ss.getSheetByName('DataPAJSK');
+  const data = sheet.getDataRange().getValues();
+  const role = payload.role;
+  const sekolah = String(payload.namaSekolah || '').trim();
+  const records = [];
+
+  for (let i = 1; i < data.length; i++) {
+    const rowSekolah = String(data[i][0]).trim();
+    if (role === 'admin' || rowSekolah === sekolah) {
+      records.push({
+        sekolah: rowSekolah,
+        tahun: String(data[i][1]),
+        tingkatan: String(data[i][2]),
+        kelas: String(data[i][3]),
+        nama: String(data[i][4]),
+        gpa: Number(data[i][5]) || 0,
+        cgpa: Number(data[i][6]) || 0,
+        gp10: Number(data[i][7]) || 0,
+        gred: String(data[i][8]).trim()
+      });
+    }
+  }
+  return jsonResponse({ status: 'success', records: records });
+}
+
+function handleUploadData(ss, payload) {
+  const sheet = ss.getSheetByName('DataPAJSK');
+  const sekolah = String(payload.namaSekolah || '').trim();
+  const tahun = String(payload.tahun || '').trim();
+  const replace = payload.replaceExisting === true;
+  const newRecords = payload.records || [];
+
+  if (replace && sheet.getLastRow() > 1) {
+    const allData = sheet.getDataRange().getValues();
+    const keptRows = [allData[0]];
+    for (let i = 1; i < allData.length; i++) {
+      if (!(String(allData[i][0]).trim() === sekolah && String(allData[i][1]).trim() === tahun)) {
+        keptRows.push(allData[i]);
       }
+    }
+    sheet.clearContents();
+    if (keptRows.length > 0) {
+      sheet.getRange(1, 1, keptRows.length, keptRows[0].length).setValues(keptRows);
+    }
+  }
+
+  if (newRecords.length > 0) {
+    const rowsToAdd = newRecords.map(r => [
+      sekolah,
+      tahun,
+      r.tingkatan,
+      r.kelas,
+      r.nama,
+      r.gpa,
+      r.cgpa,
+      r.gp10,
+      r.gred
+    ]);
+    const startRow = sheet.getLastRow() + 1;
+    sheet.getRange(startRow, 1, rowsToAdd.length, 9).setValues(rowsToAdd);
+  }
+
+  return jsonResponse({ status: 'success', count: newRecords.length });
+}
+
+function handleGetUsers(ss) {
+  const sheet = ss.getSheetByName('Users');
+  const data = sheet.getDataRange().getValues();
+  const users = [];
+  for (let i = 1; i < data.length; i++) {
+    users.push({
+      username: String(data[i][0]),
+      namaSekolah: String(data[i][2]),
+      role: String(data[i][3])
     });
+  }
+  return jsonResponse({ status: 'success', users: users });
+}
 
-    function toggleConfigModal() {
-      document.getElementById("configModal").classList.toggle("hidden");
+function handleAddUser(ss, payload) {
+  const sheet = ss.getSheetByName('Users');
+  const data = sheet.getDataRange().getValues();
+  const newUser = String(payload.username || '').trim();
+
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]).trim().toLowerCase() === newUser.toLowerCase()) {
+      return jsonResponse({ status: 'error', message: 'ID Pengguna sudah wujud.' });
     }
+  }
 
-    function saveAndLoadSheetUrl() {
-      let url = document.getElementById("sheetUrlInput").value.trim();
-      if (!url) return alert("Sila masukkan pautan Google Sheet (.xlsx).");
-      // Tukar pautan edit Google Sheet secara automatik kepada pautan export xlsx jika pengguna tampal URL biasa
-      const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
-      if (match && !url.includes("/pub?") && !url.includes("export?format=xlsx")) {
-        url = `https://docs.google.com/spreadsheets/d/${match[1]}/export?format=xlsx`;
-      }
-      localStorage.setItem("pajsk_sheet_url", url);
-      document.getElementById("btnRefresh").classList.remove("hidden");
-      toggleConfigModal();
-      loadFromUrl(url);
+  sheet.appendRow([
+    newUser,
+    String(payload.password || '').trim(),
+    String(payload.namaSekolah || '').trim(),
+    String(payload.role || 'sekolah').trim()
+  ]);
+
+  return jsonResponse({ status: 'success', message: 'Pengguna berjaya didaftarkan.' });
+}
+
+function handleDeleteUser(ss, payload) {
+  const sheet = ss.getSheetByName('Users');
+  const data = sheet.getDataRange().getValues();
+  const targetUser = String(payload.username || '').trim();
+
+  if (targetUser === 'admin') {
+    return jsonResponse({ status: 'error', message: 'Akaun admin utama tidak boleh dipadam.' });
+  }
+
+  for (let i = data.length - 1; i >= 1; i--) {
+    if (String(data[i][0]).trim() === targetUser) {
+      sheet.deleteRow(i + 1);
+      return jsonResponse({ status: 'success', message: 'Pengguna dipadam.' });
     }
+  }
+  return jsonResponse({ status: 'error', message: 'Pengguna tidak dijumpai.' });
+}
 
-    function syncFromSavedUrl() {
-      const url = localStorage.getItem("pajsk_sheet_url") || DEFAULT_GOOGLE_SHEET_XLSX_URL;
-      if (url) loadFromUrl(url);
-    }
+function jsonResponse(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}`;
 
-    async function loadFromUrl(url) {
-      setStatus("loading", "Sedang memuat turun & memproses data dari Google Sheets...");
-      try {
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const buffer = await res.arrayBuffer();
-        parseWorkbook(buffer, "Google Sheets (Live)");
-      } catch (err) {
-        console.error(err);
-        setStatus("error", "Gagal memuat turun Google Sheet. Pastikan helaian telah diterbitkan (Publish to Web -> .xlsx) atau muat naik fail .xlsx secara terus.");
-      }
-    }
+        // ==================== INITIALIZATION ====================
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            document.getElementById('appsScriptTextarea').value = GOOGLE_APPS_SCRIPT_CODE;
+            document.getElementById('modalScriptTextarea').value = GOOGLE_APPS_SCRIPT_CODE;
 
-    function handleFileUpload(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-      setStatus("loading", `Memproses fail ${file.name}...`);
-      const reader = new FileReader();
-      reader.onload = (e) => parseWorkbook(e.target.result, file.name);
-      reader.readAsArrayBuffer(file);
-    }
+            // Mobile sidebar toggle
+            document.getElementById('mobileMenuBtn').addEventListener('click', () => {
+                const nav = document.getElementById('sidebarNav');
+                nav.classList.toggle('hidden');
+                nav.classList.toggle('flex');
+            });
 
-    function setStatus(type, msg) {
-      const dot = document.getElementById("statusDot");
-      const text = document.getElementById("statusText");
-      dot.className = "w-2.5 h-2.5 rounded-full inline-block " +
-        (type === "ok" ? "bg-emerald-500" : type === "error" ? "bg-rose-500" : "bg-amber-400 animate-pulse");
-      text.textContent = msg;
-    }
+            // Restore session if available
+            const savedSession = sessionStorage.getItem('pajsk_session');
+            if (savedSession) {
+                try {
+                    currentUser = JSON.parse(savedSession);
+                    initializeAppForUser();
+                } catch (e) {
+                    sessionStorage.removeItem('pajsk_session');
+                }
+            }
+        });
 
-    function parseScoreDetail(val) {
-      if (!val) return { raw: null, pct: null, text: "-" };
-      const str = String(val).trim();
-      const m = str.match(/^([\d.]+)\s*\(([\d.]+)%\)/);
-      if (m) return { raw: parseFloat(m[1]), pct: parseFloat(m[2]), text: str };
-      return { raw: null, pct: null, text: str };
-    }
-
-    function parseWorkbook(arrayBuffer, sourceLabel) {
-      const wb = XLSX.read(arrayBuffer, { type: "array" });
-      const parsed = [];
-      const validClassRegex = /^[1-5][A-Z0-9]+$/i;
-
-      wb.SheetNames.forEach((sheetName) => {
-        const cleanSheet = sheetName.trim();
-        if (!validClassRegex.test(cleanSheet)) return;
-
-        const tingkatan = cleanSheet.charAt(0);
-        const ws = wb.Sheets[sheetName];
-        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
-
-        for (let r = 2; r < rows.length; r++) {
-          const row = rows[r];
-          if (!row) continue;
-          const nama = row[1] ? String(row[1]).trim() : "";
-          if (!nama || nama.toLowerCase() === "nama") continue;
-
-          const nextRow = rows[r + 1] || [];
-          const gpaVal = parseFloat(row[10]);
-          const cgpaVal = parseFloat(row[11]);
-          const status = row[13] ? String(row[13]).trim().toUpperCase() : "DITAKSIR";
-          const isAssessed = !isNaN(cgpaVal) && status === "DITAKSIR";
-
-          const kelabDetail = parseScoreDetail(nextRow[3]);
-          const bbDetail = parseScoreDetail(nextRow[5]);
-          const sukanDetail = parseScoreDetail(nextRow[7]);
-
-          parsed.push({
-            bill: row[0] || "",
-            nama,
-            ic: row[2] ? String(row[2]).trim() : "-",
-            tingkatan,
-            kelas: cleanSheet.toUpperCase(),
-            kelab: row[3] ? String(row[3]).replace(/\s*\(SM\)/gi, "").trim() : "-",
-            kelabTambahan: row[4] ? String(row[4]).trim() : "-",
-            kelabSkor: kelabDetail.raw,
-            kelabPct: kelabDetail.pct,
-            bb: row[5] ? String(row[5]).replace(/\s*\(SM\)/gi, "").trim() : "-",
-            bbTambahan: row[6] ? String(row[6]).trim() : "-",
-            bbSkor: bbDetail.raw,
-            bbPct: bbDetail.pct,
-            sukan: row[7] ? String(row[7]).replace(/\s*\(SM\)/gi, "").trim() : "-",
-            sukanTambahan: row[8] ? String(row[8]).trim() : "-",
-            sukanSkor: sukanDetail.raw,
-            sukanPct: sukanDetail.pct,
-            ekstra: row[9] ? String(row[9]).trim() : "-",
-            gpa: isNaN(gpaVal) ? null : gpaVal,
-            cgpa: isNaN(cgpaVal) ? null : cgpaVal,
-            markah10: isNaN(cgpaVal) ? null : cgpaVal / 10,
-            gred: row[12] ? String(row[12]).trim().toUpperCase() : "TL",
-            status,
-            isAssessed
-          });
+        // ==================== API CALL HELPER (NO-PREFLIGHT CORS SAFE) ====================
+        async function callAppsScript(payload, loadingMsg = "Memproses permintaan...") {
+            showLoading(loadingMsg);
+            try {
+                // Menggunakan text/plain supaya browser tidak menghantar OPTIONS preflight ke Google Apps Script
+                const response = await fetch(WEB_APP_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                hideLoading();
+                return result;
+            } catch (error) {
+                hideLoading();
+                console.error("Apps Script Fetch Error:", error);
+                showToast("Ralat sambungan ke Google Apps Script. Sila semak deployment Web App.", "error");
+                return { status: 'error', message: error.message };
+            }
         }
-      });
 
-      if (parsed.length === 0) {
-        setStatus("error", "Tiada rekod murid ditemui. Pastikan nama tab helaian adalah nama kelas seperti 1S1, 2S1, 5S3.");
-        return;
-      }
+        // ==================== AUTHENTICATION ====================
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('loginUsername').value.trim();
+            const password = document.getElementById('loginPassword').value.trim();
 
-      allStudents = parsed;
-      populateClassFilter();
-      document.getElementById("emptyState").classList.add("hidden");
-      document.getElementById("dashboardContent").classList.remove("hidden");
-      document.getElementById("btnExport").disabled = false;
-      document.getElementById("lastUpdated").textContent = `Dikemas kini: ${new Date().toLocaleTimeString("ms-MY")}`;
-      setStatus("ok", `Berjaya memuatkan ${allStudents.length} rekod murid daripada ${sourceLabel}.`);
-      onTingkatanChange();
-    }
+            if (!username || !password) return;
 
-    function populateClassFilter() {
-      const ting = document.getElementById("filterTingkatan").value;
-      const kelasSelect = document.getElementById("filterKelas");
-      const classes = [...new Set(allStudents
-        .filter((s) => ting === "ALL" || s.tingkatan === ting)
-        .map((s) => s.kelas))].sort();
-      kelasSelect.innerHTML = `<option value="ALL">Semua Kelas (${classes.length})</option>` +
-        classes.map((c) => `<option value="${c}">${c}</option>`).join("");
-    }
+            const res = await callAppsScript({
+                action: 'login',
+                username: username,
+                password: password
+            }, "Mengesahkan akaun di Google Sheet...");
 
-    function onTingkatanChange() {
-      populateClassFilter();
-      const ting = document.getElementById("filterTingkatan").value;
-      document.getElementById("benchmarkInput").value = BENCHMARK_2025[ting] ?? 1.56;
-      renderAll();
-    }
+            if (res.status === 'success' && res.user) {
+                currentUser = res.user;
+                sessionStorage.setItem('pajsk_session', JSON.stringify(currentUser));
+                showToast(`Selamat datang, ${currentUser.namaSekolah}`, "success");
+                initializeAppForUser();
+            } else {
+                showToast(res.message || "ID Pengguna atau Kata Laluan salah.", "error");
+            }
+        });
 
-    function getFilteredStudents() {
-      const ting = document.getElementById("filterTingkatan").value;
-      const kelas = document.getElementById("filterKelas").value;
-      return allStudents.filter((s) => {
-        if (ting !== "ALL" && s.tingkatan !== ting) return false;
-        if (kelas !== "ALL" && s.kelas !== kelas) return false;
-        return true;
-      });
-    }
+        function initializeAppForUser() {
+            document.getElementById('loginSection').classList.add('hidden');
+            document.getElementById('appSection').classList.remove('hidden');
 
-    // Kiraan GP / LEG / G KIRA tepat seperti ANALISIS PAJSK SMKKA 2025.xlsx
-    function computeGpStats(students) {
-      const assessed = students.filter((s) => s.isAssessed);
-      const buckets = {
-        b10: 0, b9: 0, b8: 0,
-        b7: 0, b6: 0,
-        b5: 0, b4: 0,
-        b3: 0, b2: 0,
-        b1: 0, b0: 0
-      };
+            document.getElementById('userDisplayName').textContent = currentUser.namaSekolah;
+            document.getElementById('uploadSchoolInput').value = currentUser.namaSekolah;
 
-      assessed.forEach((s) => {
-        const m = s.markah10;
-        if (m >= 10) buckets.b10++;
-        else if (m >= 9) buckets.b9++;
-        else if (m >= 8) buckets.b8++;
-        else if (m >= 7) buckets.b7++;
-        else if (m >= 6) buckets.b6++;
-        else if (m >= 5) buckets.b5++;
-        else if (m >= 4) buckets.b4++;
-        else if (m >= 3) buckets.b3++;
-        else if (m >= 2) buckets.b2++;
-        else if (m >= 1) buckets.b1++;
-        else buckets.b0++;
-      });
+            if (currentUser.role === 'admin') {
+                document.getElementById('userRoleBadge').textContent = "Pentadbir Sistem (Admin)";
+                document.getElementById('userRoleBadge').className = "inline-block mt-1.5 px-2 py-0.5 text-[10px] font-semibold rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30";
+                document.getElementById('nav-admin').classList.remove('hidden');
+                document.getElementById('adminSchoolFilterBox').classList.remove('hidden');
+                document.getElementById('adminSchoolFilterBox').classList.add('flex');
+                fetchUsersList();
+            } else {
+                document.getElementById('userRoleBadge').textContent = "Akaun Sekolah";
+                document.getElementById('nav-admin').classList.add('hidden');
+                document.getElementById('adminSchoolFilterBox').classList.add('hidden');
+            }
 
-      const sumA = buckets.b10 + buckets.b9 + buckets.b8;
-      const sumB = buckets.b7 + buckets.b6;
-      const sumC = buckets.b5 + buckets.b4;
-      const sumD = buckets.b3 + buckets.b2;
-      const sumE = buckets.b1 + buckets.b0;
-
-      const gkiraA = 1 * sumA;
-      const gkiraB = 2 * sumB;
-      const gkiraC = 3 * sumC;
-      const gkiraD = 4 * sumD;
-      const gkiraE = 5 * sumE;
-
-      const totalAssessed = assessed.length;
-      const totalGkira = gkiraA + gkiraB + gkiraC + gkiraD + gkiraE;
-      const gp = totalAssessed > 0 ? totalGkira / totalAssessed : 0;
-
-      return {
-        total: students.length,
-        totalAssessed,
-        totalTL: students.length - totalAssessed,
-        buckets,
-        sumA, sumB, sumC, sumD, sumE,
-        gkiraA, gkiraB, gkiraC, gkiraD, gkiraE,
-        totalGkira,
-        gp
-      };
-    }
-
-    function renderAll() {
-      const filtered = getFilteredStudents();
-      const stats = computeGpStats(filtered);
-      const assessed = filtered.filter((s) => s.isAssessed);
-      const benchmark = parseFloat(document.getElementById("benchmarkInput").value) || 0;
-
-      // Update KPI Cards
-      document.getElementById("kpiTotal").textContent = stats.total;
-      document.getElementById("kpiAssessed").textContent = `${stats.totalAssessed} Ditaksir | ${stats.totalTL} TL`;
-      document.getElementById("kpiGps2026").textContent = stats.gp.toFixed(2);
-
-      if (benchmark > 0 && stats.totalAssessed > 0) {
-        const diff = stats.gp - benchmark;
-        const improved = diff <= 0;
-        document.getElementById("kpiGpsDiff").innerHTML = improved
-          ? `<span class="text-emerald-600">&#9660; ${Math.abs(diff).toFixed(2)} (Lebih baik drpd ${benchmark.toFixed(2)})</span>`
-          : `<span class="text-rose-600">&#9650; +${diff.toFixed(2)} (Sasaran 2025: ${benchmark.toFixed(2)})</span>`;
-      } else {
-        document.getElementById("kpiGpsDiff").textContent = "-";
-      }
-
-      const pctA = stats.totalAssessed > 0 ? ((stats.sumA / stats.totalAssessed) * 100).toFixed(1) : "0.0";
-      document.getElementById("kpiGradeA").textContent = stats.sumA;
-      document.getElementById("kpiGradeAPct").textContent = `${pctA}% murid ditaksir`;
-
-      const avgCgpa = assessed.length > 0 ? assessed.reduce((acc, s) => acc + s.cgpa, 0) / assessed.length : 0;
-      document.getElementById("kpiAvgCgpa").textContent = avgCgpa.toFixed(2);
-      document.getElementById("kpiAvg10").textContent = `Markah 10%: ${(avgCgpa / 10).toFixed(2)}`;
-
-      const borderlineList = assessed.filter((s) => s.cgpa >= 75.0 && s.cgpa < 80.0);
-      document.getElementById("kpiBorderline").textContent = borderlineList.length;
-
-      renderGpTable(stats, benchmark);
-      renderTingSummaryTable();
-      renderCharts(stats);
-      renderClassAndComponents(filtered);
-      renderFocusLists(filtered, borderlineList);
-      renderStudentTable();
-    }
-
-    function renderGpTable(stats, benchmark) {
-      const ting = document.getElementById("filterTingkatan").value;
-      const kelas = document.getElementById("filterKelas").value;
-      const label = kelas !== "ALL" ? `KELAS ${kelas}` : (ting !== "ALL" ? `TINGKATAN ${ting}` : "SEMUA TINGKATAN");
-      document.getElementById("tableScopeBadge").textContent = label;
-
-      const rows = [
-        { gp: 1, gred: "A", range: "10", count: stats.buckets.b10, sum: stats.sumA, gkira: stats.gkiraA, span: 3, bg: "bg-emerald-50/60" },
-        { range: "9 - 9.99", count: stats.buckets.b9, bg: "bg-emerald-50/60" },
-        { range: "8 - 8.99", count: stats.buckets.b8, bg: "bg-emerald-50/60" },
-        { gp: 2, gred: "B", range: "7 - 7.99", count: stats.buckets.b7, sum: stats.sumB, gkira: stats.gkiraB, span: 2, bg: "bg-blue-50/50" },
-        { range: "6 - 6.99", count: stats.buckets.b6, bg: "bg-blue-50/50" },
-        { gp: 3, gred: "C", range: "5 - 5.99", count: stats.buckets.b5, sum: stats.sumC, gkira: stats.gkiraC, span: 2, bg: "bg-amber-50/50" },
-        { range: "4 - 4.99", count: stats.buckets.b4, bg: "bg-amber-50/50" },
-        { gp: 4, gred: "D", range: "3 - 3.99", count: stats.buckets.b3, sum: stats.sumD, gkira: stats.gkiraD, span: 2, bg: "bg-orange-50/50" },
-        { range: "2 - 2.99", count: stats.buckets.b2, bg: "bg-orange-50/50" },
-        { gp: 5, gred: "E", range: "1 - 1.99", count: stats.buckets.b1, sum: stats.sumE, gkira: stats.gkiraE, span: 2, bg: "bg-rose-50/50" },
-        { range: "0 - 0.99", count: stats.buckets.b0, bg: "bg-rose-50/50" },
-      ];
-
-      let html = rows.map((r) => {
-        let cells = "";
-        if (r.span) {
-          cells += `<td rowspan="${r.span}" class="border border-slate-300 px-3 py-1.5 text-center font-bold">${r.gp}</td>`;
-          cells += `<td rowspan="${r.span}" class="border border-slate-300 px-3 py-1.5 text-center font-extrabold text-base">${r.gred}</td>`;
+            fetchRecordsFromSheet();
         }
-        cells += `<td class="border border-slate-300 px-3 py-1.5 text-center font-mono text-xs">${r.range}</td>`;
-        cells += `<td class="border border-slate-300 px-3 py-1.5 text-right font-semibold">${r.count}</td>`;
-        if (r.span) {
-          cells += `<td rowspan="${r.span}" class="border border-slate-300 px-3 py-1.5 text-right font-bold bg-white">${r.sum}</td>`;
-          cells += `<td rowspan="${r.span}" class="border border-slate-300 px-3 py-1.5 text-right font-bold bg-white">${r.gkira}</td>`;
+
+        function logout() {
+            currentUser = null;
+            allRecords = [];
+            filteredRecords = [];
+            sessionStorage.removeItem('pajsk_session');
+            document.getElementById('appSection').classList.add('hidden');
+            document.getElementById('loginSection').classList.remove('hidden');
+            document.getElementById('loginPassword').value = '';
+            showToast("Anda telah log keluar.", "info");
         }
-        return `<tr class="${r.bg}">${cells}</tr>`;
-      }).join("");
 
-      html += `
-        <tr class="bg-slate-200 font-bold text-slate-900">
-          <td colspan="3" class="border border-slate-300 px-3 py-2 text-right">JUMLAH DITAKSIR</td>
-          <td class="border border-slate-300 px-3 py-2 text-right">${stats.totalAssessed}</td>
-          <td class="border border-slate-300 px-3 py-2 text-right">${stats.totalAssessed}</td>
-          <td class="border border-slate-300 px-3 py-2 text-right">${stats.totalGkira}</td>
-        </tr>
-        <tr class="bg-blue-900 text-white font-extrabold">
-          <td colspan="5" class="border border-slate-300 px-3 py-2 text-right">GPT / GPS 2026</td>
-          <td class="border border-slate-300 px-3 py-2 text-right text-base">${stats.gp.toFixed(2)}</td>
-        </tr>
-        <tr class="bg-slate-100 text-slate-700 font-semibold">
-          <td colspan="5" class="border border-slate-300 px-3 py-1.5 text-right">SASARAN / GPT 2025</td>
-          <td class="border border-slate-300 px-3 py-1.5 text-right">${benchmark ? benchmark.toFixed(2) : "-"}</td>
-        </tr>
-      `;
-      document.getElementById("gpTableBody").innerHTML = html;
-    }
+        // ==================== FETCH & FILTER DATA ====================
+        async function fetchRecordsFromSheet() {
+            if (!currentUser) return;
+            const res = await callAppsScript({
+                action: 'getData',
+                role: currentUser.role,
+                namaSekolah: currentUser.namaSekolah
+            }, "Memuat turun data PAJSK dari Google Sheet...");
 
-    function renderTingSummaryTable() {
-      const levels = ["1", "2", "3", "4", "5"];
-      let html = levels.map((t) => {
-        const list = allStudents.filter((s) => s.tingkatan === t);
-        const st = computeGpStats(list);
-        const b25 = BENCHMARK_2025[t];
-        const diff = st.totalAssessed > 0 ? st.gp - b25 : 0;
-        const pctA = st.totalAssessed > 0 ? ((st.sumA / st.totalAssessed) * 100).toFixed(1) + "%" : "-";
-        const badge = st.totalAssessed === 0 ? "-" : (diff <= 0
-          ? `<span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold text-xs">${diff.toFixed(2)}</span>`
-          : `<span class="bg-rose-100 text-rose-800 px-2 py-0.5 rounded font-bold text-xs">+${diff.toFixed(2)}</span>`);
-
-        return `
-          <tr class="hover:bg-slate-50">
-            <td class="border border-slate-300 px-3 py-2 font-bold">Tingkatan ${t}</td>
-            <td class="border border-slate-300 px-3 py-2 text-right">${st.total}</td>
-            <td class="border border-slate-300 px-3 py-2 text-right">${st.totalAssessed}</td>
-            <td class="border border-slate-300 px-3 py-2 text-right font-semibold text-emerald-700">${st.sumA}</td>
-            <td class="border border-slate-300 px-3 py-2 text-right font-semibold text-blue-700">${st.sumB}</td>
-            <td class="border border-slate-300 px-3 py-2 text-right">${st.sumC}</td>
-            <td class="border border-slate-300 px-3 py-2 text-right">${st.sumD}</td>
-            <td class="border border-slate-300 px-3 py-2 text-right">${st.sumE}</td>
-            <td class="border border-slate-300 px-3 py-2 text-right font-semibold">${pctA}</td>
-            <td class="border border-slate-300 px-3 py-2 text-right font-extrabold text-blue-900">${st.totalAssessed > 0 ? st.gp.toFixed(2) : "-"}</td>
-            <td class="border border-slate-300 px-3 py-2 text-right text-slate-500">${b25.toFixed(2)}</td>
-            <td class="border border-slate-300 px-3 py-2 text-center">${badge}</td>
-          </tr>
-        `;
-      }).join("");
-
-      const allSt = computeGpStats(allStudents);
-      const gps25 = BENCHMARK_2025["ALL"];
-      const gpsDiff = allSt.gp - gps25;
-      const allPctA = allSt.totalAssessed > 0 ? ((allSt.sumA / allSt.totalAssessed) * 100).toFixed(1) + "%" : "-";
-      html += `
-        <tr class="bg-blue-50 font-extrabold text-slate-900">
-          <td class="border border-slate-300 px-3 py-2">KESELURUHAN SEKOLAH (GPS)</td>
-          <td class="border border-slate-300 px-3 py-2 text-right">${allSt.total}</td>
-          <td class="border border-slate-300 px-3 py-2 text-right">${allSt.totalAssessed}</td>
-          <td class="border border-slate-300 px-3 py-2 text-right text-emerald-700">${allSt.sumA}</td>
-          <td class="border border-slate-300 px-3 py-2 text-right text-blue-700">${allSt.sumB}</td>
-          <td class="border border-slate-300 px-3 py-2 text-right">${allSt.sumC}</td>
-          <td class="border border-slate-300 px-3 py-2 text-right">${allSt.sumD}</td>
-          <td class="border border-slate-300 px-3 py-2 text-right">${allSt.sumE}</td>
-          <td class="border border-slate-300 px-3 py-2 text-right">${allPctA}</td>
-          <td class="border border-slate-300 px-3 py-2 text-right text-blue-900 text-base">${allSt.gp.toFixed(2)}</td>
-          <td class="border border-slate-300 px-3 py-2 text-right">${gps25.toFixed(2)}</td>
-          <td class="border border-slate-300 px-3 py-2 text-center">${gpsDiff <= 0 ? gpsDiff.toFixed(2) : "+" + gpsDiff.toFixed(2)}</td>
-        </tr>
-      `;
-      document.getElementById("tingSummaryBody").innerHTML = html;
-    }
-
-    function renderCharts(currentStats) {
-      const levels = ["1", "2", "3", "4", "5"];
-      const gpt2026Data = levels.map((t) => {
-        const st = computeGpStats(allStudents.filter((s) => s.tingkatan === t));
-        return st.totalAssessed > 0 ? Number(st.gp.toFixed(2)) : 0;
-      });
-      const gpt2025Data = levels.map((t) => BENCHMARK_2025[t]);
-
-      if (charts.gptCompare) charts.gptCompare.destroy();
-      charts.gptCompare = new Chart(document.getElementById("gptCompareChart"), {
-        type: "bar",
-        data: {
-          labels: ["Ting 1", "Ting 2", "Ting 3", "Ting 4", "Ting 5"],
-          datasets: [
-            { label: "GPT 2026", data: gpt2026Data, backgroundColor: "#1d4ed8", borderRadius: 6 },
-            { label: "GPT 2025", data: gpt2025Data, backgroundColor: "#94a3b8", borderRadius: 6 }
-          ]
-        },
-        options: {
-          responsive: true,
-          scales: { y: { beginAtZero: true, max: 3.0 } }
+            if (res.status === 'success') {
+                allRecords = res.records || [];
+                populateFilterDropdowns();
+                applyDashboardFilters();
+            }
         }
-      });
 
-      if (charts.gradeDist) charts.gradeDist.destroy();
-      charts.gradeDist = new Chart(document.getElementById("gradeDistChart"), {
-        type: "doughnut",
-        data: {
-          labels: ["Gred A (GP 1)", "Gred B (GP 2)", "Gred C (GP 3)", "Gred D (GP 4)", "Gred E (GP 5)"],
-          datasets: [{
-            data: [currentStats.sumA, currentStats.sumB, currentStats.sumC, currentStats.sumD, currentStats.sumE],
-            backgroundColor: ["#10b981", "#3b82f6", "#f59e0b", "#f97316", "#ef4444"]
-          }]
-        },
-        options: {
-          responsive: true,
-          plugins: { legend: { position: "right" } }
+        function populateFilterDropdowns() {
+            // Populate Year Filter
+            const years = [...new Set(allRecords.map(r => r.tahun))].filter(Boolean).sort().reverse();
+            const yearSelect = document.getElementById('yearFilterSelect');
+            const prevYear = yearSelect.value;
+            yearSelect.innerHTML = '<option value="ALL">Semua Tahun</option>';
+            years.forEach(y => {
+                yearSelect.innerHTML += `<option value="${y}">${y}</option>`;
+            });
+            if (years.includes(prevYear)) yearSelect.value = prevYear;
+            else if (years.length > 0) yearSelect.value = years[0];
+
+            // Populate Admin School Filter
+            if (currentUser.role === 'admin') {
+                const schools = [...new Set(allRecords.map(r => r.sekolah))].filter(Boolean).sort();
+                const schoolSelect = document.getElementById('adminSchoolSelect');
+                const prevSchool = schoolSelect.value;
+                schoolSelect.innerHTML = '<option value="ALL">Semua Sekolah</option>';
+                schools.forEach(s => {
+                    schoolSelect.innerHTML += `<option value="${s}">${s}</option>`;
+                });
+                if (schools.includes(prevSchool)) schoolSelect.value = prevSchool;
+            }
         }
-      });
-    }
 
-    function renderClassAndComponents(filtered) {
-      const classes = [...new Set(filtered.map((s) => s.kelas))].sort();
-      document.getElementById("classSummaryBody").innerHTML = classes.map((c) => {
-        const list = filtered.filter((s) => s.kelas === c);
-        const st = computeGpStats(list);
-        const ass = list.filter((s) => s.isAssessed);
-        const avgGpa = ass.length ? (ass.reduce((a, b) => a + (b.gpa || 0), 0) / ass.length).toFixed(2) : "-";
-        const avgCgpa = ass.length ? (ass.reduce((a, b) => a + b.cgpa, 0) / ass.length).toFixed(2) : "-";
-        const avg10 = ass.length ? (ass.reduce((a, b) => a + b.markah10, 0) / ass.length).toFixed(2) : "-";
-        return `
-          <tr class="hover:bg-slate-50">
-            <td class="border border-slate-300 px-3 py-2 font-bold text-blue-900">${c}</td>
-            <td class="border border-slate-300 px-3 py-2 text-right">${st.total}</td>
-            <td class="border border-slate-300 px-3 py-2 text-right">${st.totalAssessed}</td>
-            <td class="border border-slate-300 px-3 py-2 text-right ${st.totalTL > 0 ? "text-rose-600 font-bold" : ""}">${st.totalTL}</td>
-            <td class="border border-slate-300 px-3 py-2 text-right text-emerald-700 font-semibold">${st.sumA}</td>
-            <td class="border border-slate-300 px-3 py-2 text-right text-blue-700 font-semibold">${st.sumB}</td>
-            <td class="border border-slate-300 px-3 py-2 text-right">${st.sumC}</td>
-            <td class="border border-slate-300 px-3 py-2 text-right">${avgGpa}</td>
-            <td class="border border-slate-300 px-3 py-2 text-right font-semibold">${avgCgpa}</td>
-            <td class="border border-slate-300 px-3 py-2 text-right">${avg10}</td>
-            <td class="border border-slate-300 px-3 py-2 text-right font-extrabold text-blue-900">${st.totalAssessed ? st.gp.toFixed(2) : "-"}</td>
-          </tr>
-        `;
-      }).join("");
+        function applyDashboardFilters() {
+            const selectedYear = document.getElementById('yearFilterSelect').value;
+            const selectedSchool = currentUser.role === 'admin'
+                ? document.getElementById('adminSchoolSelect').value
+                : currentUser.namaSekolah;
 
-      // Purata 3 Komponen Kokurikulum
-      const ass = filtered.filter((s) => s.isAssessed);
-      const calcComp = (keySkor, keyPct) => {
-        const valid = ass.filter((s) => typeof s[keySkor] === "number");
-        if (!valid.length) return { avgSkor: "0.0", avgPct: "0.0" };
-        return {
-          avgSkor: (valid.reduce((a, b) => a + b[keySkor], 0) / valid.length).toFixed(2),
-          avgPct: (valid.reduce((a, b) => a + (b[keyPct] || 0), 0) / valid.length).toFixed(2)
-        };
-      };
-      const cKelab = calcComp("kelabSkor", "kelabPct");
-      const cBB = calcComp("bbSkor", "bbPct");
-      const cSukan = calcComp("sukanSkor", "sukanPct");
+            filteredRecords = allRecords.filter(r => {
+                const matchYear = selectedYear === 'ALL' || String(r.tahun) === String(selectedYear);
+                const matchSchool = selectedSchool === 'ALL' || String(r.sekolah) === String(selectedSchool);
+                return matchYear && matchSchool;
+            });
 
-      document.getElementById("componentCards").innerHTML = [
-        { title: "Kelab & Persatuan", skor: cKelab.avgSkor, pct: cKelab.avgPct, color: "indigo" },
-        { title: "Badan Beruniform", skor: cBB.avgSkor, pct: cBB.avgPct, color: "emerald" },
-        { title: "Sukan & Permainan", skor: cSukan.avgSkor, pct: cSukan.avgPct, color: "amber" }
-      ].map((item) => `
-        <div class="bg-slate-50 border border-slate-200 rounded-xl p-4">
-          <div class="text-xs font-bold uppercase text-slate-400">Purata Komponen</div>
-          <div class="text-base font-extrabold text-slate-800 mt-0.5">${item.title}</div>
-          <div class="mt-3 flex items-baseline justify-between">
-            <div>
-              <span class="text-2xl font-extrabold text-blue-800">${item.skor}</span>
-              <span class="text-xs text-slate-500">/ 110</span>
-            </div>
-            <span class="text-sm font-bold text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full">${item.pct}%</span>
-          </div>
-        </div>
-      `).join("");
-    }
+            // Update Print Metadata
+            document.getElementById('printSchoolMeta').textContent =
+                `Sekolah: ${selectedSchool === 'ALL' ? 'SEMUA SEKOLAH BERDAFTAR' : selectedSchool} | Tahun: ${selectedYear === 'ALL' ? 'SEMUA TAHUN' : selectedYear}`;
 
-    function renderFocusLists(filtered, borderlineList) {
-      const cemerlang = filtered
-        .filter((s) => s.isAssessed && s.cgpa >= 80.0)
-        .sort((a, b) => b.cgpa - a.cgpa);
+            // Populate Class Filter in Student Tab
+            const classes = [...new Set(filteredRecords.map(r => r.kelas))].filter(Boolean).sort();
+            const classSelect = document.getElementById('studentClassFilter');
+            classSelect.innerHTML = '<option value="ALL">Semua Kelas</option>';
+            classes.forEach(c => {
+                classSelect.innerHTML += `<option value="${c}">${c}</option>`;
+            });
 
-      document.getElementById("countCemerlang").textContent = `${cemerlang.length} Murid`;
-      document.getElementById("cemerlangBody").innerHTML = cemerlang.map((s, idx) => `
-        <tr class="hover:bg-emerald-50/50">
-          <td class="px-2.5 py-1.5 text-slate-500">${idx + 1}</td>
-          <td class="px-2.5 py-1.5 font-semibold text-slate-800">${s.nama}</td>
-          <td class="px-2.5 py-1.5 text-center font-bold">${s.kelas}</td>
-          <td class="px-2.5 py-1.5 text-right font-bold text-emerald-700">${s.cgpa.toFixed(2)}</td>
-          <td class="px-2.5 py-1.5 text-right font-mono">${s.markah10.toFixed(2)}</td>
-        </tr>
-      `).join("") || `<tr><td colspan="5" class="p-4 text-center text-slate-400">Tiada rekod</td></tr>`;
-
-      const sortedBorder = [...borderlineList].sort((a, b) => b.cgpa - a.cgpa);
-      document.getElementById("countBorderline").textContent = `${sortedBorder.length} Murid`;
-      document.getElementById("borderlineBody").innerHTML = sortedBorder.map((s, idx) => `
-        <tr class="hover:bg-amber-50/50">
-          <td class="px-2.5 py-1.5 text-slate-500">${idx + 1}</td>
-          <td class="px-2.5 py-1.5 font-semibold text-slate-800">${s.nama}</td>
-          <td class="px-2.5 py-1.5 text-center font-bold">${s.kelas}</td>
-          <td class="px-2.5 py-1.5 text-right font-bold text-amber-700">${s.cgpa.toFixed(2)}</td>
-          <td class="px-2.5 py-1.5 text-right text-rose-600 font-semibold">-${(80 - s.cgpa).toFixed(2)}</td>
-        </tr>
-      `).join("") || `<tr><td colspan="5" class="p-4 text-center text-slate-400">Tiada murid dalam julat borderline</td></tr>`;
-
-      const tlList = filtered.filter((s) => !s.isAssessed);
-      const tlSec = document.getElementById("tlSection");
-      if (tlList.length > 0) {
-        tlSec.classList.remove("hidden");
-        document.getElementById("tlBody").innerHTML = tlList.map((s, idx) => `
-          <tr>
-            <td class="px-3 py-1.5">${idx + 1}</td>
-            <td class="px-3 py-1.5 font-semibold">${s.nama}</td>
-            <td class="px-3 py-1.5 font-mono">${s.ic}</td>
-            <td class="px-3 py-1.5 text-center font-bold">${s.kelas}</td>
-            <td class="px-3 py-1.5 text-center text-rose-700 font-bold">${s.status}</td>
-          </tr>
-        `).join("");
-      } else {
-        tlSec.classList.add("hidden");
-      }
-    }
-
-    function renderStudentTable() {
-      let list = [...getFilteredStudents()];
-      const q = document.getElementById("searchStudent").value.trim().toLowerCase();
-      const sortBy = document.getElementById("sortStudent").value;
-
-      if (q) {
-        list = list.filter((s) =>
-          s.nama.toLowerCase().includes(q) ||
-          s.kelas.toLowerCase().includes(q) ||
-          s.kelab.toLowerCase().includes(q) ||
-          s.bb.toLowerCase().includes(q) ||
-          s.sukan.toLowerCase().includes(q)
-        );
-      }
-
-      list.sort((a, b) => {
-        if (sortBy === "cgpa_desc") return (b.cgpa ?? -1) - (a.cgpa ?? -1);
-        if (sortBy === "cgpa_asc") return (a.cgpa ?? 999) - (b.cgpa ?? 999);
-        if (sortBy === "name_asc") return a.nama.localeCompare(b.nama);
-        if (sortBy === "class_asc") return a.kelas.localeCompare(b.kelas) || a.nama.localeCompare(b.nama);
-        return 0;
-      });
-
-      document.getElementById("fullStudentBody").innerHTML = list.map((s, idx) => {
-        const gradeBadge = s.gred === "A" ? "bg-emerald-100 text-emerald-800"
-          : s.gred === "B" ? "bg-blue-100 text-blue-800"
-          : s.gred === "C" ? "bg-amber-100 text-amber-800"
-          : "bg-rose-100 text-rose-800";
-        return `
-          <tr class="hover:bg-slate-50">
-            <td class="px-2.5 py-2 text-center font-bold text-slate-500">${idx + 1}</td>
-            <td class="px-2.5 py-2 font-semibold text-slate-800">${s.nama}</td>
-            <td class="px-2.5 py-2 text-center font-bold text-blue-900">${s.kelas}</td>
-            <td class="px-2.5 py-2">${s.kelab} ${s.kelabSkor !== null ? `<span class="text-slate-400">(${s.kelabSkor})</span>` : ""}</td>
-            <td class="px-2.5 py-2">${s.bb} ${s.bbSkor !== null ? `<span class="text-slate-400">(${s.bbSkor})</span>` : ""}</td>
-            <td class="px-2.5 py-2">${s.sukan} ${s.sukanSkor !== null ? `<span class="text-slate-400">(${s.sukanSkor})</span>` : ""}</td>
-            <td class="px-2.5 py-2 text-slate-600">${s.ekstra}</td>
-            <td class="px-2.5 py-2 text-right">${s.gpa !== null ? s.gpa.toFixed(2) : "TL"}</td>
-            <td class="px-2.5 py-2 text-right font-bold">${s.cgpa !== null ? s.cgpa.toFixed(2) : "TL"}</td>
-            <td class="px-2.5 py-2 text-right font-mono">${s.markah10 !== null ? s.markah10.toFixed(2) : "-"}</td>
-            <td class="px-2.5 py-2 text-center"><span class="px-2 py-0.5 rounded font-bold ${gradeBadge}">${s.gred}</span></td>
-          </tr>
-        `;
-      }).join("");
-    }
-
-    function switchTab(tabName) {
-      ["gpt", "kelas", "fokus", "murid"].forEach((t) => {
-        document.getElementById(`panel-${t}`).classList.toggle("hidden", t !== tabName);
-        const btn = document.getElementById(`tab-${t}`);
-        if (t === tabName) {
-          btn.classList.add("tab-active");
-          btn.classList.remove("text-slate-600");
-        } else {
-          btn.classList.remove("tab-active");
-          btn.classList.add("text-slate-600");
+            renderDashboardAnalysis();
+            renderStudentTable();
         }
-      });
-    }
 
-    function exportAnalysisToExcel() {
-      if (!allStudents.length) return;
-      const wb = XLSX.utils.book_new();
+        // ==================== ANALISIS & PERSEMBAHAN DATA ====================
+        function renderDashboardAnalysis() {
+            const emptyBanner = document.getElementById('emptyDataBanner');
+            const dashContent = document.getElementById('dashboardContent');
 
-      // Helaian 1: Rumusan GPT & GPS
-      const levels = ["1", "2", "3", "4", "5"];
-      const rumusanRows = levels.map((t) => {
-        const st = computeGpStats(allStudents.filter((s) => s.tingkatan === t));
-        return {
-          Tingkatan: `Tingkatan ${t}`,
-          Jumlah_Murid: st.total,
-          Ditaksir: st.totalAssessed,
-          Tidak_Ditaksir: st.totalTL,
-          Gred_A: st.sumA,
-          Gred_B: st.sumB,
-          Gred_C: st.sumC,
-          Gred_D: st.sumD,
-          Gred_E: st.sumE,
-          Jumlah_G_Kira: st.totalGkira,
-          GPT_2026: Number(st.gp.toFixed(2)),
-          GPT_2025: BENCHMARK_2025[t]
-        };
-      });
-      const allSt = computeGpStats(allStudents);
-      rumusanRows.push({
-        Tingkatan: "KESELURUHAN SEKOLAH (GPS)",
-        Jumlah_Murid: allSt.total,
-        Ditaksir: allSt.totalAssessed,
-        Tidak_Ditaksir: allSt.totalTL,
-        Gred_A: allSt.sumA,
-        Gred_B: allSt.sumB,
-        Gred_C: allSt.sumC,
-        Gred_D: allSt.sumD,
-        Gred_E: allSt.sumE,
-        Jumlah_G_Kira: allSt.totalGkira,
-        GPT_2026: Number(allSt.gp.toFixed(2)),
-        GPT_2025: BENCHMARK_2025["ALL"]
-      });
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rumusanRows), "RUMUSAN_GPT_GPS");
+            if (filteredRecords.length === 0) {
+                emptyBanner.classList.remove('hidden');
+                dashContent.classList.add('hidden');
+                return;
+            }
 
-      // Helaian 2: Data Bersih & Markah 10%
-      const studentRows = [...allStudents]
-        .sort((a, b) => (b.cgpa ?? -1) - (a.cgpa ?? -1))
-        .map((s, i) => ({
-          Kedudukan: i + 1,
-          Tingkatan: `Tingkatan ${s.tingkatan}`,
-          Kelas: s.kelas,
-          Nama: s.nama,
-          No_KP: s.ic,
-          Kelab_Persatuan: s.kelab,
-          Skor_Kelab: s.kelabSkor,
-          Badan_Beruniform: s.bb,
-          Skor_BB: s.bbSkor,
-          Sukan_Permainan: s.sukan,
-          Skor_Sukan: s.sukanSkor,
-          Ekstra_Kurikulum: s.ekstra,
-          GPA: s.gpa ?? "TL",
-          CGPA: s.cgpa ?? "TL",
-          Markah_10_Peratus: s.markah10 !== null ? Number(s.markah10.toFixed(2)) : "TL",
-          Gred: s.gred,
-          Status: s.status
-        }));
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(studentRows), "ANALISIS_MURID_2026");
+            emptyBanner.classList.add('hidden');
+            dashContent.classList.remove('hidden');
 
-      XLSX.writeFile(wb, "ANALISIS_PAJSK_SMKKA_2026.xlsx");
-    }
-  </script>
+            // 1. KPI Summary
+            const total = filteredRecords.length;
+            const uniqueClasses = new Set(filteredRecords.map(r => r.kelas)).size;
+            const countA = filteredRecords.filter(r => r.gred === 'A').length;
+            const pctA = total > 0 ? ((countA / total) * 100).toFixed(2) : '0.00';
+
+            const validCgpaRecords = filteredRecords.filter(r => r.cgpa > 0);
+            const avgCgpa = validCgpaRecords.length > 0
+                ? (validCgpaRecords.reduce((sum, r) => sum + Number(r.cgpa), 0) / validCgpaRecords.length).toFixed(2)
+                : '0.00';
+            const avgGp = validCgpaRecords.length > 0
+                ? (validCgpaRecords.reduce((sum, r) => sum + Number(r.gp10), 0) / validCgpaRecords.length).toFixed(2)
+                : '0.00';
+
+            document.getElementById('kpiTotalStudents').textContent = total.toLocaleString();
+            document.getElementById('kpiTotalClasses').textContent = `${uniqueClasses} Kelas terlibat`;
+            document.getElementById('kpiGradeACount').textContent = countA.toLocaleString();
+            document.getElementById('kpiGradeAPercent').textContent = `${pctA}%`;
+            document.getElementById('kpiAvgCgpa').textContent = avgCgpa;
+            document.getElementById('kpiAvgGp').textContent = avgGp;
+
+            // 2. Group by Tingkatan (Form)
+            const forms = [...new Set(filteredRecords.map(r => r.tingkatan))].sort();
+            const tbodyForm = document.getElementById('tbodyFormGrades');
+            const tbodyGpRange = document.getElementById('tbodyFormGpRange');
+            tbodyForm.innerHTML = '';
+            tbodyGpRange.innerHTML = '';
+
+            let sumCalon = 0, sumA = 0, sumB = 0, sumC = 0, sumD = 0, sumE = 0, sumTL = 0;
+            let sumR9 = 0, sumR8 = 0, sumR7 = 0, sumR6 = 0, sumR5 = 0, sumRLow = 0;
+
+            const chartFormLabels = [];
+            const chartDataA = [], chartDataB = [], chartDataC = [], chartDataD = [], chartDataE = [];
+
+            forms.forEach(form => {
+                const fRecs = filteredRecords.filter(r => r.tingkatan === form);
+                const fTotal = fRecs.length;
+                const gA = fRecs.filter(r => r.gred === 'A').length;
+                const gB = fRecs.filter(r => r.gred === 'B').length;
+                const gC = fRecs.filter(r => r.gred === 'C').length;
+                const gD = fRecs.filter(r => r.gred === 'D').length;
+                const gE = fRecs.filter(r => r.gred === 'E').length;
+                const gTL = fRecs.filter(r => !['A','B','C','D','E'].includes(r.gred)).length;
+                const fPctA = fTotal > 0 ? ((gA / fTotal) * 100).toFixed(1) : '0.0';
+
+                const fValid = fRecs.filter(r => r.cgpa > 0);
+                const fAvgCgpa = fValid.length > 0 ? (fValid.reduce((s, r) => s + Number(r.cgpa), 0) / fValid.length).toFixed(2) : '0.00';
+                const fAvgGp = fValid.length > 0 ? (fValid.reduce((s, r) => s + Number(r.gp10), 0) / fValid.length).toFixed(2) : '0.00';
+
+                sumCalon += fTotal; sumA += gA; sumB += gB; sumC += gC; sumD += gD; sumE += gE; sumTL += gTL;
+
+                const formLabel = isNaN(form) ? form : `Tingkatan ${form}`;
+                chartFormLabels.push(formLabel);
+                chartDataA.push(gA); chartDataB.push(gB); chartDataC.push(gC); chartDataD.push(gD); chartDataE.push(gE);
+
+                tbodyForm.innerHTML += `
+                    <tr class="hover:bg-slate-50">
+                        <td class="py-2.5 px-4 text-left font-bold text-slate-900 border-r border-slate-200">${formLabel}</td>
+                        <td class="py-2.5 px-3 border-r border-slate-200 font-semibold">${fTotal}</td>
+                        <td class="py-2.5 px-3 bg-emerald-50/60 text-emerald-800 font-bold border-r border-slate-200">${gA}</td>
+                        <td class="py-2.5 px-3 bg-emerald-50/40 text-emerald-700 font-semibold border-r border-slate-200">${fPctA}%</td>
+                        <td class="py-2.5 px-3 border-r border-slate-200">${gB}</td>
+                        <td class="py-2.5 px-3 border-r border-slate-200">${gC}</td>
+                        <td class="py-2.5 px-3 border-r border-slate-200">${gD}</td>
+                        <td class="py-2.5 px-3 border-r border-slate-200">${gE}</td>
+                        <td class="py-2.5 px-3 border-r border-slate-200 text-slate-400">${gTL}</td>
+                        <td class="py-2.5 px-3 bg-indigo-50/50 text-indigo-800 font-bold border-r border-slate-200">${fAvgCgpa}</td>
+                        <td class="py-2.5 px-3 bg-amber-50/50 text-amber-800 font-bold">${fAvgGp}</td>
+                    </tr>
+                `;
+
+                // GP 10% Range Breakdown
+                const r9 = fRecs.filter(r => r.gp10 >= 9.00).length;
+                const r8 = fRecs.filter(r => r.gp10 >= 8.00 && r.gp10 < 9.00).length;
+                const r7 = fRecs.filter(r => r.gp10 >= 7.00 && r.gp10 < 8.00).length;
+                const r6 = fRecs.filter(r => r.gp10 >= 6.00 && r.gp10 < 7.00).length;
+                const r5 = fRecs.filter(r => r.gp10 >= 5.00 && r.gp10 < 6.00).length;
+                const rLow = fRecs.filter(r => r.gp10 < 5.00).length;
+
+                sumR9 += r9; sumR8 += r8; sumR7 += r7; sumR6 += r6; sumR5 += r5; sumRLow += rLow;
+
+                tbodyGpRange.innerHTML += `
+                    <tr class="hover:bg-slate-50">
+                        <td class="py-2.5 px-4 text-left font-bold text-slate-900 border-r border-slate-200">${formLabel}</td>
+                        <td class="py-2.5 px-3 font-semibold border-r border-slate-200">${fTotal}</td>
+                        <td class="py-2.5 px-3 bg-emerald-50/60 text-emerald-800 font-bold border-r border-slate-200">${r9}</td>
+                        <td class="py-2.5 px-3 bg-teal-50/50 text-teal-800 font-semibold border-r border-slate-200">${r8}</td>
+                        <td class="py-2.5 px-3 border-r border-slate-200">${r7}</td>
+                        <td class="py-2.5 px-3 border-r border-slate-200">${r6}</td>
+                        <td class="py-2.5 px-3 border-r border-slate-200">${r5}</td>
+                        <td class="py-2.5 px-3 text-rose-700 font-semibold">${rLow}</td>
+                    </tr>
+                `;
+            });
+
+            // Footer Totals for Table 1 & Table 2
+            document.getElementById('tfootFormGrades').innerHTML = `
+                <tr>
+                    <td class="py-3 px-4 text-left uppercase border-r border-slate-300">Jumlah Keseluruhan</td>
+                    <td class="py-3 px-3 border-r border-slate-300">${sumCalon}</td>
+                    <td class="py-3 px-3 text-emerald-800 border-r border-slate-300">${sumA}</td>
+                    <td class="py-3 px-3 text-emerald-800 border-r border-slate-300">${pctA}%</td>
+                    <td class="py-3 px-3 border-r border-slate-300">${sumB}</td>
+                    <td class="py-3 px-3 border-r border-slate-300">${sumC}</td>
+                    <td class="py-3 px-3 border-r border-slate-300">${sumD}</td>
+                    <td class="py-3 px-3 border-r border-slate-300">${sumE}</td>
+                    <td class="py-3 px-3 border-r border-slate-300">${sumTL}</td>
+                    <td class="py-3 px-3 text-indigo-900 border-r border-slate-300">${avgCgpa}</td>
+                    <td class="py-3 px-3 text-amber-800">${avgGp}</td>
+                </tr>
+            `;
+
+            document.getElementById('tfootFormGpRange').innerHTML = `
+                <tr>
+                    <td class="py-3 px-4 text-left uppercase border-r border-slate-300">Jumlah Keseluruhan</td>
+                    <td class="py-3 px-3 border-r border-slate-300">${sumCalon}</td>
+                    <td class="py-3 px-3 text-emerald-800 border-r border-slate-300">${sumR9}</td>
+                    <td class="py-3 px-3 text-teal-800 border-r border-slate-300">${sumR8}</td>
+                    <td class="py-3 px-3 border-r border-slate-300">${sumR7}</td>
+                    <td class="py-3 px-3 border-r border-slate-300">${sumR6}</td>
+                    <td class="py-3 px-3 border-r border-slate-300">${sumR5}</td>
+                    <td class="py-3 px-3 text-rose-800">${sumRLow}</td>
+                </tr>
+            `;
+
+            // 3. Class Breakdown Table
+            const classes = [...new Set(filteredRecords.map(r => r.kelas))].sort();
+            const tbodyClass = document.getElementById('tbodyClassAnalysis');
+            tbodyClass.innerHTML = '';
+
+            classes.forEach(cls => {
+                const cRecs = filteredRecords.filter(r => r.kelas === cls);
+                const cTotal = cRecs.length;
+                const gA = cRecs.filter(r => r.gred === 'A').length;
+                const gB = cRecs.filter(r => r.gred === 'B').length;
+                const gC = cRecs.filter(r => r.gred === 'C').length;
+                const gD = cRecs.filter(r => r.gred === 'D').length;
+                const gE = cRecs.filter(r => r.gred === 'E').length;
+                const cPctA = cTotal > 0 ? ((gA / cTotal) * 100).toFixed(1) : '0.0';
+                const cValid = cRecs.filter(r => r.cgpa > 0);
+                const cAvgCgpa = cValid.length > 0 ? (cValid.reduce((s, r) => s + Number(r.cgpa), 0) / cValid.length).toFixed(2) : '0.00';
+                const cAvgGp = cValid.length > 0 ? (cValid.reduce((s, r) => s + Number(r.gp10), 0) / cValid.length).toFixed(2) : '0.00';
+
+                tbodyClass.innerHTML += `
+                    <tr class="hover:bg-slate-50">
+                        <td class="py-2 px-3 text-left font-bold text-slate-900">${cls}</td>
+                        <td class="py-2 px-2">${cTotal}</td>
+                        <td class="py-2 px-2 bg-emerald-50/60 text-emerald-800 font-bold">${gA}</td>
+                        <td class="py-2 px-2 text-emerald-700 font-semibold">${cPctA}%</td>
+                        <td class="py-2 px-2">${gB}</td>
+                        <td class="py-2 px-2">${gC}</td>
+                        <td class="py-2 px-2">${gD}</td>
+                        <td class="py-2 px-2">${gE}</td>
+                        <td class="py-2 px-2 bg-indigo-50/40 font-semibold text-indigo-800">${cAvgCgpa}</td>
+                        <td class="py-2 px-2 bg-amber-50/40 font-bold text-amber-800">${cAvgGp}</td>
+                    </tr>
+                `;
+            });
+
+            // 4. Top 15 Pelajar Cemerlang
+            const top15 = [...filteredRecords]
+                .sort((a, b) => b.cgpa - a.cgpa || b.gpa - a.gpa)
+                .slice(0, 15);
+            const topContainer = document.getElementById('topStudentsList');
+            topContainer.innerHTML = '';
+            top15.forEach((st, idx) => {
+                const medalColor = idx === 0 ? 'bg-amber-400 text-slate-950' :
+                                   idx === 1 ? 'bg-slate-300 text-slate-900' :
+                                   idx === 2 ? 'bg-amber-700 text-white' : 'bg-slate-100 text-slate-600';
+                topContainer.innerHTML += `
+                    <div class="p-3.5 flex items-center justify-between gap-3 hover:bg-slate-50 transition-colors">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <span class="w-6 h-6 rounded-full ${medalColor} text-xs font-extrabold flex items-center justify-center shrink-0">
+                                ${idx + 1}
+                            </span>
+                            <div class="min-w-0">
+                                <p class="text-xs font-bold text-slate-800 truncate">${st.nama}</p>
+                                <p class="text-[11px] text-slate-500">Kelas: <span class="font-semibold text-slate-700">${st.kelas}</span></p>
+                            </div>
+                        </div>
+                        <div class="text-right shrink-0">
+                            <span class="inline-block px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-xs font-extrabold">
+                                GP: ${Number(st.gp10).toFixed(2)}
+                            </span>
+                            <p class="text-[10px] text-slate-400 mt-0.5">CGPA: ${Number(st.cgpa).toFixed(2)}</p>
+                        </div>
+                    </div>
+                `;
+            });
+
+            // 5. Render Charts
+            renderCharts(chartFormLabels, chartDataA, chartDataB, chartDataC, chartDataD, chartDataE, [sumR9, sumR8, sumR7, sumR6, sumR5, sumRLow]);
+        }
+
+        function renderCharts(labels, dA, dB, dC, dD, dE, gpRanges) {
+            const ctx1 = document.getElementById('gradeByFormChart').getContext('2d');
+            if (gradeChartInstance) gradeChartInstance.destroy();
+            gradeChartInstance = new Chart(ctx1, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Gred A', data: dA, backgroundColor: '#10b981', borderRadius: 4 },
+                        { label: 'Gred B', data: dB, backgroundColor: '#3b82f6', borderRadius: 4 },
+                        { label: 'Gred C', data: dC, backgroundColor: '#f59e0b', borderRadius: 4 },
+                        { label: 'Gred D', data: dD, backgroundColor: '#f97316', borderRadius: 4 },
+                        { label: 'Gred E', data: dE, backgroundColor: '#ef4444', borderRadius: 4 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } },
+                    scales: {
+                        x: { grid: { display: false } },
+                        y: { beginAtZero: true, grid: { color: '#f1f5f9' } }
+                    }
+                }
+            });
+
+            const ctx2 = document.getElementById('gpRangeChart').getContext('2d');
+            if (gpRangeChartInstance) gpRangeChartInstance.destroy();
+            gpRangeChartInstance = new Chart(ctx2, {
+                type: 'doughnut',
+                data: {
+                    labels: ['9.00 - 10.00', '8.00 - 8.99', '7.00 - 7.99', '6.00 - 6.99', '5.00 - 5.99', '< 5.00'],
+                    datasets: [{
+                        data: gpRanges,
+                        backgroundColor: ['#059669', '#0d9488', '#2563eb', '#4f46e5', '#d97706', '#e11d48'],
+                        borderWidth: 2,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '62%',
+                    plugins: { legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 } } } }
+                }
+            });
+        }
+
+        // ==================== SENARAI MURID & PENAPISAN ====================
+        function getFilteredStudentList() {
+            const q = document.getElementById('studentSearchInput').value.toLowerCase().trim();
+            const fForm = document.getElementById('studentFormFilter').value;
+            const fClass = document.getElementById('studentClassFilter').value;
+            const fGrade = document.getElementById('studentGradeFilter').value;
+
+            return filteredRecords.filter(r => {
+                const matchName = !q || r.nama.toLowerCase().includes(q) || r.kelas.toLowerCase().includes(q);
+                const matchForm = fForm === 'ALL' || String(r.tingkatan) === fForm;
+                const matchClass = fClass === 'ALL' || r.kelas === fClass;
+                const matchGrade = fGrade === 'ALL' || r.gred === fGrade;
+                return matchName && matchForm && matchClass && matchGrade;
+            });
+        }
+
+        function renderStudentTable() {
+            const list = getFilteredStudentList();
+            const tbody = document.getElementById('studentTableBody');
+            tbody.innerHTML = '';
+
+            const displaySlice = list.slice(0, 250);
+            displaySlice.forEach((st, idx) => {
+                const badgeClass = st.gred === 'A' ? 'bg-emerald-100 text-emerald-800' :
+                                   st.gred === 'B' ? 'bg-blue-100 text-blue-800' :
+                                   st.gred === 'C' ? 'bg-amber-100 text-amber-800' :
+                                   st.gred === 'D' ? 'bg-orange-100 text-orange-800' :
+                                   st.gred === 'E' ? 'bg-red-100 text-red-800' : 'bg-slate-100 text-slate-600';
+
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-50">
+                        <td class="py-2.5 px-4 text-slate-500">${idx + 1}</td>
+                        <td class="py-2.5 px-4 font-semibold text-slate-800">${st.nama}</td>
+                        <td class="py-2.5 px-4 text-center">${st.tingkatan}</td>
+                        <td class="py-2.5 px-4 text-center font-medium">${st.kelas}</td>
+                        <td class="py-2.5 px-4 text-center">${Number(st.gpa).toFixed(2)}</td>
+                        <td class="py-2.5 px-4 text-center font-semibold">${Number(st.cgpa).toFixed(2)}</td>
+                        <td class="py-2.5 px-4 text-center font-bold text-blue-800">${Number(st.gp10).toFixed(2)}</td>
+                        <td class="py-2.5 px-4 text-center">
+                            <span class="inline-block px-2.5 py-0.5 rounded-full font-bold text-[11px] ${badgeClass}">${st.gred}</span>
+                        </td>
+                        <td class="py-2.5 px-4 text-slate-500 text-[11px]">${st.sekolah}</td>
+                    </tr>
+                `;
+            });
+
+            document.getElementById('studentCountLabel').textContent =
+                `Memaparkan ${displaySlice.length} daripada ${list.length} rekod sepadan`;
+        }
+
+        // ==================== EXCEL PARSER (PAJSK 2026.XLSX MULTI-SHEET) ====================
+        function handleExcelSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    parsePajskWorkbook(workbook);
+                } catch (err) {
+                    console.error(err);
+                    showToast("Gagal membaca fail Excel. Pastikan format .xlsx sah.", "error");
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function parsePajskWorkbook(workbook) {
+            pendingUploadRecords = [];
+            const processedSheets = [];
+
+            workbook.SheetNames.forEach(sheetName => {
+                const ws = workbook.Sheets[sheetName];
+                const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+                if (!rows || rows.length < 2) return;
+
+                // Cari baris pengepala (Header Row) yang mengandungi 'NAMA' dan ('CGPA' atau 'GRED')
+                let headerIdx = -1;
+                let colNama = -1, colGpa = -1, colCgpa = -1, colGred = -1;
+
+                for (let r = 0; r < Math.min(rows.length, 20); r++) {
+                    const rowUpper = rows[r].map(c => String(c).trim().toUpperCase());
+                    const idxNama = rowUpper.findIndex(c => c === 'NAMA' || c.includes('NAMA MURID') || c.includes('NAMA PELAJAR'));
+                    const idxCgpa = rowUpper.findIndex(c => c === 'CGPA' || c.includes('MARKAH CGPA'));
+                    const idxGred = rowUpper.findIndex(c => c === 'GRED' || c.includes('GRED CGPA'));
+                    const idxGpa = rowUpper.findIndex(c => c === 'GPA' || c.includes('MARKAH GPA'));
+
+                    if (idxNama !== -1 && (idxCgpa !== -1 || idxGred !== -1)) {
+                        headerIdx = r;
+                        colNama = idxNama;
+                        colGpa = idxGpa;
+                        colCgpa = idxCgpa;
+                        colGred = idxGred;
+                        break;
+                    }
+                }
+
+                if (headerIdx === -1) return; // Abaikan helaian bukan senarai murid
+
+                const cleanClassName = sheetName.trim().toUpperCase();
+                const formDigit = cleanClassName.charAt(0);
+                const tingkatan = ['1','2','3','4','5','6'].includes(formDigit) ? formDigit : 'LAIN';
+
+                let sheetCount = 0;
+                for (let i = headerIdx + 1; i < rows.length; i++) {
+                    const row = rows[i];
+                    const nama = String(row[colNama] || '').trim();
+                    if (!nama || nama.toUpperCase() === 'NAMA' || nama.toUpperCase().startsWith('JUMLAH')) continue;
+
+                    const gpaVal = colGpa !== -1 ? parseFloat(row[colGpa]) || 0 : 0;
+                    const cgpaVal = colCgpa !== -1 ? parseFloat(row[colCgpa]) || 0 : 0;
+                    let gredVal = colGred !== -1 ? String(row[colGred] || '').trim().toUpperCase() : '';
+
+                    // Kira Gred secara automatik jika kosong dalam Excel
+                    if (!gredVal) {
+                        if (cgpaVal >= 80) gredVal = 'A';
+                        else if (cgpaVal >= 60) gredVal = 'B';
+                        else if (cgpaVal >= 40) gredVal = 'C';
+                        else if (cgpaVal >= 20) gredVal = 'D';
+                        else if (cgpaVal > 0) gredVal = 'E';
+                        else gredVal = 'TL';
+                    }
+
+                    // Kira GP (10%) = CGPA / 10 dibundarkan 2 tempat perpuluhan
+                    const gp10Val = Number((cgpaVal / 10).toFixed(2));
+
+                    pendingUploadRecords.push({
+                        tingkatan: tingkatan,
+                        kelas: cleanClassName,
+                        nama: nama.toUpperCase(),
+                        gpa: Number(gpaVal.toFixed(2)),
+                        cgpa: Number(cgpaVal.toFixed(2)),
+                        gp10: gp10Val,
+                        gred: gredVal
+                    });
+                    sheetCount++;
+                }
+
+                if (sheetCount > 0) {
+                    processedSheets.push(`${cleanClassName} (${sheetCount})`);
+                }
+            });
+
+            if (pendingUploadRecords.length === 0) {
+                showToast("Tiada rekod murid sah dikesan dalam fail Excel tersebut.", "error");
+                return;
+            }
+
+            // Paparkan pratonton sebelum hantar ke Google Sheet
+            document.getElementById('uploadPreviewBox').classList.remove('hidden');
+            document.getElementById('previewSummaryTitle').textContent =
+                `${pendingUploadRecords.length} Rekod Murid Sedia Disimpan`;
+            document.getElementById('previewSummarySheets').textContent =
+                `Helaian dikesan: ${processedSheets.join(', ')}`;
+
+            const prevTbody = document.getElementById('previewTableBody');
+            prevTbody.innerHTML = '';
+            pendingUploadRecords.slice(0, 50).forEach((r, idx) => {
+                prevTbody.innerHTML += `
+                    <tr>
+                        <td class="py-1.5 px-3 text-slate-400">${idx + 1}</td>
+                        <td class="py-1.5 px-3 font-medium text-slate-800">${r.nama}</td>
+                        <td class="py-1.5 px-3">${r.kelas}</td>
+                        <td class="py-1.5 px-3 text-center">${r.gpa.toFixed(2)}</td>
+                        <td class="py-1.5 px-3 text-center">${r.cgpa.toFixed(2)}</td>
+                        <td class="py-1.5 px-3 text-center font-bold text-blue-700">${r.gp10.toFixed(2)}</td>
+                        <td class="py-1.5 px-3 text-center font-bold">${r.gred}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        async function submitParsedDataToSheet() {
+            if (pendingUploadRecords.length === 0) return;
+            const tahun = document.getElementById('uploadYearInput').value.trim();
+            const replaceExisting = document.getElementById('replaceExistingCheck').checked;
+
+            const res = await callAppsScript({
+                action: 'uploadData',
+                namaSekolah: currentUser.namaSekolah,
+                tahun: tahun,
+                replaceExisting: replaceExisting,
+                records: pendingUploadRecords
+            }, `Menyimpan ${pendingUploadRecords.length} rekod ke Google Sheet...`);
+
+            if (res.status === 'success') {
+                showToast(`Berjaya menyimpan ${res.count} rekod ke Google Sheet!`, "success");
+                document.getElementById('uploadPreviewBox').classList.add('hidden');
+                document.getElementById('excelFileInput').value = '';
+                pendingUploadRecords = [];
+                await fetchRecordsFromSheet();
+                switchTab('dashboard');
+            } else {
+                showToast(res.message || "Gagal menyimpan data.", "error");
+            }
+        }
+
+        // ==================== ADMIN USER MANAGEMENT ====================
+        async function fetchUsersList() {
+            if (currentUser.role !== 'admin') return;
+            const res = await callAppsScript({ action: 'getUsers' }, "Memuatkan senarai akaun...");
+            if (res.status === 'success') {
+                const tbody = document.getElementById('usersTableBody');
+                tbody.innerHTML = '';
+                (res.users || []).forEach(u => {
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-slate-50">
+                            <td class="py-3 px-4 font-bold text-slate-800">${u.username}</td>
+                            <td class="py-3 px-4 text-slate-600">${u.namaSekolah}</td>
+                            <td class="py-3 px-4">
+                                <span class="px-2 py-0.5 rounded-md text-[11px] font-semibold ${u.role === 'admin' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}">
+                                    ${u.role}
+                                </span>
+                            </td>
+                            <td class="py-3 px-4 text-right">
+                                ${u.username !== 'admin' ? `
+                                    <button onclick="deleteUserAccount('${u.username}')" class="text-red-600 hover:bg-red-50 p-1.5 rounded-lg transition-colors" title="Padam Akaun">
+                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                    </button>
+                                ` : '<span class="text-[11px] text-slate-400 italic">Utama</span>'}
+                            </td>
+                        </tr>
+                    `;
+                });
+                lucide.createIcons();
+            }
+        }
+
+        document.getElementById('addUserForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const namaSekolah = document.getElementById('newSchoolName').value.trim();
+            const username = document.getElementById('newSchoolUsername').value.trim();
+            const password = document.getElementById('newSchoolPassword').value.trim();
+            const role = document.getElementById('newSchoolRole').value;
+
+            const res = await callAppsScript({
+                action: 'addUser',
+                namaSekolah,
+                username,
+                password,
+                role
+            }, "Mendaftarkan akaun sekolah baharu...");
+
+            if (res.status === 'success') {
+                showToast("Akaun sekolah berjaya didaftarkan dalam Google Sheet!", "success");
+                document.getElementById('addUserForm').reset();
+                fetchUsersList();
+            } else {
+                showToast(res.message || "Gagal mendaftar akaun.", "error");
+            }
+        });
+
+        async function deleteUserAccount(username) {
+            const res = await callAppsScript({
+                action: 'deleteUser',
+                username: username
+            }, "Memadam akaun pengguna...");
+
+            if (res.status === 'success') {
+                showToast("Akaun berjaya dipadam.", "success");
+                fetchUsersList();
+            } else {
+                showToast(res.message || "Gagal memadam akaun.", "error");
+            }
+        }
+
+        // ==================== EXPORT HELPERS ====================
+        function exportTableToExcel(tableId, filename) {
+            const table = document.getElementById(tableId);
+            const wb = XLSX.utils.table_to_book(table, { sheet: "Analisis" });
+            XLSX.writeFile(wb, `${filename}_${new Date().toISOString().slice(0,10)}.xlsx`);
+        }
+
+        function exportFilteredStudents() {
+            const list = getFilteredStudentList();
+            if (list.length === 0) {
+                showToast("Tiada data untuk dieksport.", "error");
+                return;
+            }
+            const ws = XLSX.utils.json_to_sheet(list.map((r, i) => ({
+                Bil: i + 1,
+                Sekolah: r.sekolah,
+                Tahun: r.tahun,
+                Tingkatan: r.tingkatan,
+                Kelas: r.kelas,
+                Nama: r.nama,
+                GPA: r.gpa,
+                CGPA: r.cgpa,
+                "GP (10%)": r.gp10,
+                Gred: r.gred
+            })));
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Senarai_Murid");
+            XLSX.writeFile(wb, `Data_PAJSK_Murid_${new Date().toISOString().slice(0,10)}.xlsx`);
+        }
+
+        // ==================== NAVIGATION & UI UTILS ====================
+        function switchTab(tabName) {
+            ['dashboard', 'students', 'upload', 'admin', 'script'].forEach(t => {
+                document.getElementById(`tab-${t}`).classList.add('hidden');
+                const btn = document.getElementById(`nav-${t}`);
+                if (btn) {
+                    btn.classList.remove('bg-blue-600', 'text-white', 'shadow-md', 'shadow-blue-600/20');
+                    btn.classList.add('text-slate-400', 'hover:bg-slate-800/80', 'hover:text-white');
+                }
+            });
+
+            document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+            const activeBtn = document.getElementById(`nav-${tabName}`);
+            if (activeBtn) {
+                activeBtn.classList.remove('text-slate-400', 'hover:bg-slate-800/80', 'hover:text-white');
+                activeBtn.classList.add('bg-blue-600', 'text-white', 'shadow-md', 'shadow-blue-600/20');
+            }
+
+            const titles = {
+                dashboard: ["Analisis Prestasi PAJSK", "Paparan rumusan gred, julat GP (10%) dan pencapaian kelas"],
+                students: ["Senarai & Carian Murid", "Pangkalan data individu PAJSK yang ditapis"],
+                upload: ["Muat Naik Fail Excel (.xlsx)", "Import data mentah berbilang helaian terus ke Google Sheet"],
+                admin: ["Pengurusan Akaun Sekolah", "Daftar dan urus akses pengguna mengikut sekolah"],
+                script: ["Kod Google Apps Script (Code.gs)", "Konfigurasi backend Google Sheet ID: " + SHEET_ID]
+            };
+            document.getElementById('pageTitle').textContent = titles[tabName][0];
+            document.getElementById('pageSubtitle').textContent = titles[tabName][1];
+        }
+
+        function showLoading(msg) {
+            document.getElementById('loadingText').textContent = msg;
+            document.getElementById('loadingOverlay').classList.remove('hidden');
+            document.getElementById('loadingOverlay').classList.add('flex');
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingOverlay').classList.add('hidden');
+            document.getElementById('loadingOverlay').classList.remove('flex');
+        }
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            const styles = type === 'error' ? 'bg-red-600 text-white border-red-700' :
+                           type === 'info' ? 'bg-slate-800 text-white border-slate-700' :
+                           'bg-emerald-600 text-white border-emerald-700';
+
+            toast.className = `${styles} px-4 py-3 rounded-xl shadow-lg border text-xs font-semibold flex items-center justify-between gap-3 pointer-events-auto transition-all duration-300`;
+            toast.innerHTML = `<span>${message}</span>`;
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        function openSetupModal() {
+            document.getElementById('setupModal').classList.remove('hidden');
+            document.getElementById('setupModal').classList.add('flex');
+        }
+
+        function closeSetupModal() {
+            document.getElementById('setupModal').classList.add('hidden');
+            document.getElementById('setupModal').classList.remove('flex');
+        }
+
+        function copyAppsScriptCode() {
+            const el = document.getElementById('appsScriptTextarea');
+            el.select();
+            document.execCommand('copy');
+            showToast("Kod Google Apps Script berjaya disalin!", "success");
+        }
+
+        function copyModalScript() {
+            const el = document.getElementById('modalScriptTextarea');
+            el.select();
+            document.execCommand('copy');
+            showToast("Kod Google Apps Script berjaya disalin!", "success");
+        }
+    </script>
 </body>
 </html>
